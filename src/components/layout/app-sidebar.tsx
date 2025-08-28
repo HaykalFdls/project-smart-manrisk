@@ -102,7 +102,7 @@ const mainNavItems: MenuItem[] = [
     title: 'Operational Risk',
     submenu: [
       { name: 'Dashboard & Report', href: '#' },
-      { name: 'Risk Control Self-Assessment (RCSA)', href: '#' },
+      { name: 'Risk Control Self-Assessment (RCSA)', href: '/rcsa' },
       { name: 'Loss Event Database (LED)', href: '#' },
       { name: 'ATMR Risiko Operasional', href: '#' },
       { name: 'Risk Profile & Risk Limit', href: '#' },
