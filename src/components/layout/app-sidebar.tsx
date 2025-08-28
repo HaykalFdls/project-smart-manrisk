@@ -1,6 +1,6 @@
 
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -31,6 +31,7 @@ import {
   ChevronDown,
   Settings,
   LogOut,
+  Shield,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -50,7 +51,7 @@ type MenuItem = {
 };
 
 const mainNavItems: MenuItem[] = [
-  { icon: LayoutDashboard, title: 'Dashboard', href: '/' },
+  { icon: LayoutDashboard, title: 'Dashboard', href: '/dashboard' },
   {
     icon: GitMerge,
     title: 'Risk Integration',
@@ -137,9 +138,20 @@ const mainNavItems: MenuItem[] = [
   { icon: Gavel, title: 'Governance & Compliance', href: '#' },
 ];
 
+const adminNavItems: MenuItem[] = [
+    {
+        icon: Shield,
+        title: 'Admin',
+        submenu: [
+            { name: 'Kelola Master RCSA', href: '/admin/rcsa-management' },
+            { name: 'Laporan RCSA', href: '/admin/rcsa-report' },
+        ]
+    }
+];
+
+
 const footerNavItems: MenuItem[] = [
   { icon: Settings, title: 'Settings', href: '#' },
-  { icon: LogOut, title: 'Logout', href: '#' },
 ];
 
 const NavItemWithSubmenu = ({
@@ -152,8 +164,34 @@ const NavItemWithSubmenu = ({
   submenu: SubMenuItem[];
 }) => {
   const pathname = usePathname();
-  const isAnySubmenuActive = submenu.some(item => item.href === pathname);
+  const isAnySubmenuActive = submenu.some(item => pathname.startsWith(item.href) && item.href !== '#');
   const [isOpen, setIsOpen] = useState(isAnySubmenuActive);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient) {
+        setIsOpen(isAnySubmenuActive);
+    }
+  }, [isAnySubmenuActive, pathname, isClient]);
+
+
+  if (!isClient) {
+    // Render a static placeholder on the server to avoid hydration mismatch
+    return (
+        <SidebarMenuButton className="justify-between w-full" isActive={isAnySubmenuActive}>
+            <div className="flex items-center gap-2">
+                <Icon />
+                <span>{title}</span>
+            </div>
+            <ChevronDown className='h-4 w-4' />
+        </SidebarMenuButton>
+    );
+  }
+
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -211,19 +249,14 @@ export function AppSidebar() {
       <div className="flex h-full flex-col">
         <SidebarHeader className="p-4">
           <Link href="/" className="flex flex-col items-center gap-2 text-sidebar-foreground">
-            <svg
+             <svg
                 xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                className="h-8 w-auto"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
+                viewBox="0 0 256 256"
+                className="h-10 w-auto"
+                fill="currentColor"
+            >
+                <path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88a88.1 88.1 0 0 1-88 88Z" />
+                <path d="M172.42 72.83a8 8 0 0 0-10.84 2.83l-56 96a8 8 0 0 0 13.68 8l56-96a8 8 0 0 0-2.84-10.83Z" />
             </svg>
             <span className="text-xl font-semibold">
               SMART
@@ -236,6 +269,14 @@ export function AppSidebar() {
               <SidebarMenuItem key={item.title}>
                 <NavItem item={item} />
               </SidebarMenuItem>
+            ))}
+             <SidebarMenuItem>
+                <hr className="my-2 border-sidebar-border" />
+            </SidebarMenuItem>
+            {adminNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                    <NavItem item={item} />
+                </SidebarMenuItem>
             ))}
           </SidebarMenu>
         </SidebarContent>

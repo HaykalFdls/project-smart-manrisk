@@ -334,35 +334,67 @@ const filteredRisks = selectedDivision
   .filter(div => div.total > 0);  
 
   if (!selectedDivision) {
-    return (
-      <>
-        <PageHeader
-            title="Operational Risk Register"
-            description="Total Risk Event / Potensi Risiko per Divisi">
-        </PageHeader>
-        <Card>
-            <CardContent className="p-0">
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead>Divisi</TableHead>
-                        <TableHead className="text-right">Total RE/PR</TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {divisionTotals.map((division) => (
-                        <TableRow key={division.name} onClick={() => handleDivisionClick(division.name)} className="cursor-pointer">
-                        <TableCell className="font-medium">{division.name}</TableCell>
-                        <TableCell className="text-right">{division.total}</TableCell>
-                        </TableRow>
-                    ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
+  return (
+    <>
+      <PageHeader
+        title="Operational Risk Register"
+        description="Total Risk Event / Potensi Risiko per Divisi"
+      />
+      <div style={{ display: 'flex', gap: '16px' }}>
+        <Card style={{ flex: 1 }}>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Kantor Pusat</TableHead>
+                  <TableHead className="text-right">Total RE/PR</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {divisionTotals.map((division) => (
+                  <TableRow
+                    key={division.name}
+                    onClick={() => handleDivisionClick(division.name)}
+                    className="cursor-pointer"
+                  >
+                    <TableCell className="font-medium">{division.name}</TableCell>
+                    <TableCell className="text-right">{division.total}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
         </Card>
-      </>
-    );
-  }
+        {/* Card baru di samping card pertama */}
+        <Card style={{ flex: 1 }}>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Kantor Cabang</TableHead>
+                  <TableHead className="text-right">Total RE/PR</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {divisionTotals.map((division) => (
+                  <TableRow
+                    key={division.name}
+                    onClick={() => handleDivisionClick(division.name)}
+                    className="cursor-pointer"
+                  >
+                    <TableCell className="font-medium">{division.name}</TableCell>
+                    <TableCell className="text-right">{division.total}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    </>
+  );
+}
+  
 
   return (
     <>
