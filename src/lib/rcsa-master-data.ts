@@ -1,0 +1,86 @@
+
+import type { RCSAData } from './rcsa-data';
+
+// This file now acts as the master template for a clean RCSA form.
+const masterData: Omit<RCSAData, 'besaranInheren' | 'levelInheren' | 'besaranResidual' | 'levelResidual'>[] = [
+  {
+    no: 1,
+    potensiRisiko: 'Terdapat selisih KAS Teller',
+    jenisRisiko: null,
+    penyebabRisiko: null,
+    dampakInheren: null,
+    frekuensiInheren: null,
+    pengendalian: null,
+    dampakResidual: null,
+    kemungkinanResidual: null,
+    penilaianKontrol: null,
+    actionPlan: null,
+    pic: null,
+    keterangan: 'Pastikan rekonsiliasi dilakukan setiap akhir hari.',
+  },
+  {
+    no: 2,
+    potensiRisiko: 'Terdapat pengisian slip oleh nasabah yang tidak dilakukan dengan benar (tidak lengkap, salah alamat, tidak diverifikasi)',
+    jenisRisiko: null,
+    penyebabRisiko: null,
+    dampakInheren: null,
+    frekuensiInheren: null,
+    pengendalian: null,
+    dampakResidual: null,
+    kemungkinanResidual: null,
+    penilaianKontrol: null,
+    actionPlan: null,
+    pic: null,
+    keterangan: 'Edukasi nasabah dan verifikasi ulang oleh teller adalah kunci.',
+  },
+  {
+    no: 3,
+    potensiRisiko: 'Terjadi kelebihan pembayaran yang pada nasabah yang menarik uang cash pada teller',
+    jenisRisiko: null,
+    penyebabRisiko: null,
+    dampakInheren: null,
+    frekuensiInheren: null,
+    pengendalian: null,
+    dampakResidual: null,
+    kemungkinanResidual: null,
+    penilaianKontrol: null,
+    actionPlan: null,
+    pic: null,
+    keterangan: null,
+  },
+  {
+    no: 4,
+    potensiRisiko: 'Terdapat pemalsuan tandatangan dari nasabah terhadap slip dll',
+    jenisRisiko: null,
+    penyebabRisiko: null,
+    dampakInheren: null,
+    frekuensiInheren: null,
+    pengendalian: null,
+    dampakResidual: null,
+    kemungkinanResidual: null,
+    penilaianKontrol: null,
+    actionPlan: null,
+    pic: null,
+    keterangan: null,
+  },
+  {
+    no: 5,
+    potensiRisiko: 'Terdapat selisih antara uang pada Mesin ATM dengan catatan buku besar kas ATM',
+    jenisRisiko: null,
+    penyebabRisiko: null,
+    dampakInheren: null,
+    frekuensiInheren: null,
+    pengendalian: null,
+    dampakResidual: null,
+    kemungkinanResidual: null,
+    penilaianKontrol: null,
+    actionPlan: null,
+    pic: null,
+    keterangan: null,
+  },
+];
+
+export const getRcsaMasterData = (): RCSAData[] => {
+    // Return a deep copy to prevent accidental mutation of the master data
+    return JSON.parse(JSON.stringify(masterData));
+}
