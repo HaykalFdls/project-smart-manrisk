@@ -1,0 +1,31 @@
+// src/types/risk.ts
+export interface Risk {
+  id: number;
+  kategori_risiko: string;
+  jenis_risiko: string;
+  skenario_risiko: string;
+  root_cause?: string;
+  dampak?: string;
+  dampak_keuangan?: number;
+  tingkat_dampak_keuangan?: string;
+  dampak_operasional?: number;
+  tingkat_dampak_operasional?: string;
+  dampak_reputasi?: number;
+  tingkat_dampak_reputasi?: string;
+  dampak_regulasi?: number;
+  tingkat_dampak_regulasi?: string;
+  skor_kemungkinan?: number;
+  tingkat_kemungkinan?: string;
+  nilai_risiko?: number;
+  tingkat_risiko?: string;
+  rencana_penanganan?: string;
+  deskripsi_rencana_penanganan?: string;
+  risiko_residual?: string;
+  kriteria_penerimaan_risiko?: string;
+  pemilik_risiko: number;
+  pemilik_nama?: string;
+  jabatan?: string;
+  divisi?: string;
+  keterangan?: string;
+  fraud_indicator?: boolean;
+}

@@ -26,7 +26,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
-import type { RiskData } from '@/app/risk-register/[namaDivisi]/page';
+import type { RiskData } from '@/app/risk-register/page';
 
 const formSchema = z.object({
   kategori: z.string().min(1, 'Kategori risiko harus diisi.'),

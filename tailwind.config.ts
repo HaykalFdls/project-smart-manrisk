@@ -45,6 +45,14 @@ export default {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
         },
+        success: {
+          DEFAULT: '#22c55e', // hijau Tailwind (green-500)
+          foreground: '#ffffff',
+        },
+        warning: {
+          DEFAULT: '#facc15', // kuning Tailwind (yellow-400)
+          foreground: '#000000',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
