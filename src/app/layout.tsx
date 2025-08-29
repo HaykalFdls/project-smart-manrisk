@@ -11,7 +11,7 @@ import { AuthProvider } from "@/hooks/auth-provide";
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'SmartLogin',
+  title: 'SMART',
   description: 'Smart Login Application',
 };
 

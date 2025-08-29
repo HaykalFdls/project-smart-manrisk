@@ -51,22 +51,29 @@ const RiskReportDetail = ({ data }: { data: RCSAData }) => {
                 <DetailRow label="Besaran" value={besaranInheren} />
                 <DetailRow label="Level" value={<Badge variant={levelInheren.variant}>{levelInheren.label}</Badge>} />
                 <Separator/>
-                 <h4 className="font-semibold pt-2">Pengendalian</h4>
-                 <p className="text-sm text-right">{data.pengendalian || '-'}</p>
+                 <h4 className="font-semibold pt-2">Pengendalian & Risiko Residual</h4>
+                 <div className="text-sm text-right font-medium">Pengendalian</div>
+                 <div className="text-sm text-right">{data.pengendalian || '-'}</div>
                 <Separator/>
-                <h4 className="font-semibold pt-2">Risiko Residual</h4>
-                <DetailRow label="Dampak" value={data.dampakResidual} />
-                <DetailRow label="Kemungkinan" value={data.kemungkinanResidual} />
-                <DetailRow label="Besaran" value={besaranResidual} />
-                <DetailRow label="Level" value={<Badge variant={levelResidual.variant}>{levelResidual.label}</Badge>} />
+                <DetailRow label="Dampak Residual" value={data.dampakResidual} />
+                <DetailRow label="Kemungkinan Residual" value={data.kemungkinanResidual} />
+                <DetailRow label="Besaran Residual" value={besaranResidual} />
+                <DetailRow label="Level Residual" value={<Badge variant={levelResidual.variant}>{levelResidual.label}</Badge>} />
                  <Separator/>
                  <DetailRow label="Penilaian Efektivitas Kontrol" value={data.penilaianKontrol} />
                  <DetailRow label="Action Plan / Mitigasi" value={<span className="whitespace-normal">{data.actionPlan}</span>} />
                  <DetailRow label="PIC" value={data.pic} />
+                 {data.keteranganUser && (
+                     <>
+                        <Separator />
+                        <h4 className="font-semibold pt-2">Keterangan dari User</h4>
+                        <div className="text-sm text-muted-foreground pt-1 whitespace-pre-wrap">{data.keteranganUser}</div>
+                     </>
+                 )}
             </CardContent>
-            {data.keterangan && (
+            {data.keteranganAdmin && (
                 <CardFooter>
-                    <p className="text-xs text-muted-foreground"><strong>Keterangan:</strong> {data.keterangan}</p>
+                    <p className="text-xs text-muted-foreground"><strong>Keterangan dari Admin:</strong> {data.keteranganAdmin.split('\n').filter(line => !line.startsWith('Target:')).join('\n')}</p>
                 </CardFooter>
             )}
         </Card>
@@ -119,8 +126,11 @@ export default function RcsaReportPage() {
             {submissions.map((submission, index) => (
               <AccordionItem value={`item-${index}`} key={submission.id} className="border rounded-lg bg-card">
                 <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                  <div className="flex justify-between w-full">
-                      <span className="font-semibold">Laporan #{submission.id}</span>
+                  <div className="flex justify-between items-center w-full">
+                      <div className="flex flex-col text-left">
+                        <span className="font-semibold">Laporan #{submission.id}</span>
+                        {submission.division && <span className="text-sm font-normal">{submission.division}</span>}
+                      </div>
                       <span className="text-sm text-muted-foreground">
                           Dikirim pada: {new Date(submission.submittedAt).toLocaleString('id-ID')}
                       </span>
