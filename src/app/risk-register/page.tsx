@@ -338,7 +338,7 @@ const filteredRisks = selectedDivision
     <>
       <PageHeader
         title="Operational Risk Register"
-        description="Total Risk Event / Potensi Risiko per Divisi"
+        description="Total Risk Event / Potensi Risiko"
       />
       <div style={{ display: 'flex', gap: '16px' }}>
         <Card style={{ flex: 1 }}>
@@ -753,9 +753,9 @@ const filteredRisks = selectedDivision
                 {Object.entries(viewingRisk).map(([key, value]) => (
                   <div key={key} className="grid grid-cols-3 gap-4 py-2">
                     <dt className="font-semibold text-muted-foreground">{key}</dt>
-                    <dd className="col-span-2 whitespace-pre-wrap break-words break-words leading-relaxed">
+                    {/* <dd className="col-span-2 whitespace-pre-wrap break-words break-words leading-relaxed">
                       {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
-                    </dd>
+                    </dd> */}
                   </div>
                 ))}
               </dl>
