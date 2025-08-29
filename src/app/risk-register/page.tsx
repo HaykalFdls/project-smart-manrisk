@@ -375,7 +375,7 @@ const filteredRisks = selectedDivision
                   <TableHead className="text-right">Total RE/PR</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              {/* <TableBody>
                 {divisionTotals.map((division) => (
                   <TableRow
                     key={division.name}
@@ -386,7 +386,7 @@ const filteredRisks = selectedDivision
                     <TableCell className="text-right">{division.total}</TableCell>
                   </TableRow>
                 ))}
-              </TableBody>
+              </TableBody> */}
             </Table>
           </CardContent>
         </Card>
