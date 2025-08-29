@@ -1,15 +1,18 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { AppSidebar } from '@/components/layout/app-sidebar';
+
 import { Toaster } from '@/components/ui/toaster';
+import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/layout/app-sidebar';
+
 import { Inter } from 'next/font/google';
+import { AuthProvider } from "@/hooks/auth-provide"; 
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'SMART Dashboard',
-  description: 'A centralized dashboard for risk management.',
+  title: 'SmartLogin',
+  description: 'Smart Login Application',
 };
 
 export default function RootLayout({
@@ -19,14 +22,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} antialiased`}>
-        <SidebarProvider>
-          <div className="flex min-h-screen">
-            <AppSidebar />
-            <SidebarInset>{children}</SidebarInset>
-          </div>
-        </SidebarProvider>
-        <Toaster />
+      <body>
+        <AuthProvider>
+          <SidebarProvider>
+            <Sidebar>
+              <AppSidebar />
+            </Sidebar>
+            <SidebarInset>
+              {children}
+            </SidebarInset>
+          </SidebarProvider>
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

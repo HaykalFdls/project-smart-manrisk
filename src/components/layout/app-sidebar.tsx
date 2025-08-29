@@ -61,13 +61,14 @@ const mainNavItems: MenuItem[] = [
       { name: 'Profil Risiko Bankwide', href: '#' },
       { name: 'ICAAP', href: '#' },
       { name: 'RAS', href: '#' },
+      { name: 'Risk Register', href: '/risk-register' },
       { name: 'KRI', href: '#' },
       { name: 'EWS', href: '#' },
       { name: 'Profil Risiko Cabang', href: '#' },
       { name: 'RMI', href: '#' },
       { name: 'ICoFR', href: '#' },
       { name: 'KMR', href: '#' },
-      { name: 'Risk Register', href: '/risk-register' },
+      
     ],
   },
   {
