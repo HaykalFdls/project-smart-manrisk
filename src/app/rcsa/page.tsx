@@ -116,11 +116,21 @@ export default function Rcsapage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    // Load current working data from draft, or master data if none exists
-    setData(getRcsaDraft());
-    setIsLoading(false);
-  }, []);
+useEffect(() => {
+  const fetchDraft = async () => {
+    try {
+      const draft = await getRcsaDraft(); // tunggu promise
+      setData(draft);
+    } catch (error) {
+      console.error("Gagal load draft RCSA:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchDraft();
+}, []);
+
 
   const calculatedData = useMemo(() => {
     return data.map((row) => {

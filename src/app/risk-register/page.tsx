@@ -235,6 +235,7 @@ const handleEditRisk = (risk: Risk) => {
 
   
   const handleViewDetails = (risk: Risk) => {
+    console.log("Risk data untuk modal:", risk); // cek di console
     setViewingRisk(risk);
   };
 
@@ -350,18 +351,20 @@ const filteredRisks = selectedDivision
                   <TableHead className="text-right">Total RE/PR</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {divisionTotals.map((division) => (
-                  <TableRow
-                    key={division.name}
-                    onClick={() => handleDivisionClick(division.name)}
-                    className="cursor-pointer"
-                  >
-                    <TableCell className="font-medium">{division.name}</TableCell>
-                    <TableCell className="text-right">{division.total}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+
+<TableBody>
+  {divisionTotals.map((division, index) => (
+    <TableRow
+      key={`${division.name}-${index}`} // ✅ kombinasi string-index
+      onClick={() => handleDivisionClick(division.name)}
+      className="cursor-pointer"
+    >
+      <TableCell className="font-medium">{division.name}</TableCell>
+      <TableCell className="text-right">{division.total}</TableCell>
+    </TableRow>
+  ))}
+</TableBody>
+
             </Table>
           </CardContent>
         </Card>
@@ -750,14 +753,18 @@ const filteredRisks = selectedDivision
           {viewingRisk && (
             <div className="text-sm max-h-[70vh] overflow-y-auto pr-6">
               <dl className="divide-y">
-                {Object.entries(viewingRisk).map(([key, value]) => (
-                  <div key={key} className="grid grid-cols-3 gap-4 py-2">
-                    <dt className="font-semibold text-muted-foreground">{key}</dt>
-                    {/* <dd className="col-span-2 whitespace-pre-wrap break-words break-words leading-relaxed">
-                      {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
-                    </dd> */}
-                  </div>
-                ))}
+
+{Object.entries(viewingRisk).map(([key, value]) => (
+  <div key={key} className="grid grid-cols-3 gap-4 py-2">
+    <dt className="font-semibold text-muted-foreground">{key}</dt>
+    <dd className="col-span-2 whitespace-pre-wrap break-words leading-relaxed">
+      {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
+    </dd>
+  </div>
+))}
+
+
+
               </dl>
             </div>
           )}

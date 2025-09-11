@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/auth-provide';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { RCSAData } from '@/lib/rcsa-data';
+import { createMasterRCSA } from '@/lib/rcsa-master-data';
 
 type AddMasterDataModalProps = {
   isOpen: boolean;
@@ -27,196 +29,128 @@ type AddMasterDataModalProps = {
   onSave: (data: Omit<RCSAData, 'no'>) => void;
 };
 
-const divisions = [
-  'Divisi Audit Internal', 'Divisi Sumber Daya Insani (SDI)', 'Divisi Perencanaan Strategis',
-  'Divisi Penyelamatan & Penyelesaian Pembiayaan (P3)', 'Divisi Pembiayaan Konsumer',
-  'Divisi Dana Jasa Ritel', 'Divisi Dana Korporasi dan Institusi (Insbank)', 'Divisi Kepatuhan',
-  'Divisi Teknologi Informasi', 'Divisi Operasional', 'Divisi Pengendalian Keuangan',
-  'Divisi Risiko Pembiayaan', 'Divisi Pembiayaan UMKM, Ritel, & Komersil', 'Divisi Manajemen Risiko',
-  'Divisi Bisnis Digital', 'Desk Sekretariat Perusahaan (Corsec)',
-  'Desk Pengembangan Produk & Prosedur (Sysdur)', 'Desk Administrasi Pembiayaan & Bisnis Legal (APBL)',
-  'Desk Legal', 'Desk Treasury'
-];
-
-// Data cabang + cabang pembantu
-const branchOptions: Record<string, string[]> = {
-  "Pelajar Pejuang": [
-    "Kantor Cabang Pelajar Pejuang",
-    "KCP Soreang",
-    "KCP Garut",
-    "KCP Rancaekek",
-    "KCP Sumedang",
-    "KCP Bojongsoang",
-    "KCP Arcamanik",
-    "KCP Mohammad Toha",
-    "KCP Majalaya",
-    "KCP UIN Sunan Gunung Djati",
-  ],
-
-  "Tasikmalaya": [
-    "Kantor Cabang Tasikmalaya",
-    "KCP Banjar",
-    "KCP Singaparna",
-    "KCP Ciawi",
-    "KCP Bantar Kalong",
-    "KCP Cikurubuk",
-    "KK Jasa Kartini",
-    "KCP Tipe B Universitas Siliwangi",
-  ],
-  "Cirebon": [
-    "Kantor Cabang Cibiru",
-    "KCP Kuningan",
-    "KCP Majalengka",
-    "KCP Arjawinangun",
-    "KCP Ciledug Cirebon",
-    "KCP Sumber",
-  ],
-
-  "Bogor": [
-    "Kantor Cabang Bogor",
-    "KCP Cibinong",
-    "KCP Jembatan Merah",
-  ],
-
-  "Serang": [
-    "Kantor Cabang Serang",
-    "KCP Pandeglang",
-    "KCP Cilegon",
-    "KCP Rangkasbitung",
-  ],
-
-  "Bekasi": [
-    "Kantor Cabang Bekasi",
-    "KCP Cikarang",
-    "KCP Pondok Gede",
-    "KCP Tambun",
-    "KCP Harapan Indah",
-    "KCP Lippo Cikarang",
-    "KCP Bantar Gebang",
-  ],
-
-  "Jakarta Soepomo" : [
-    "Kantor Cabang Jakarta Soepomo",
-    "KCP Rawamangun",
-    "KCP Rawamangun",
-    "KCP Kramat Jati",
-    "KCP Pondok Labu",
-  ],
-
-  "Bandung Braga" : [
-    "Kantor Cabang Bandung Braga",
-    "KCP Sukajadi",
-    "KCP Cimahi",
-    "KCP Jamika",
-    "KCP Margaasih",
-    "KCP Lembang",
-    "KCP Padalarang",
-  ],
-
-  "Tangerang" : [
-    "Kantor Cabang Tangerang",
-    "KCP Ciledug",
-    "KCP BSD",
-    "KCP Ciputat",
-    "KCP Citra Raya",
-  ],
-
-  "Depok" : [
-    "Kantor Cabang Depok",
-    "KCP Cibubur",
-    "KCP Sawangan",
-  ],
-
-  "Karawang" : [
-    "Kantor Cabang Karawang",
-    "KCP Purwakarta",
-    "KCP Subang",
-    "KCP Cikampek",
-  ],
-
-  "Sukabumi" : [
-    "Kantor Cabang Sukabumi",
-    "KCP Cianjur",
-    "KCP Palabuhan Ratu"
-  ],
-
-  "Indramayu" : [
-    "Kantor Cabang Indramayu",
-    "KCP Jatibarang",
-    "KCP Patrol"
-  ],
+type Unit = {
+  id: number;
+  unit_name: string;
+  unit_type: 'pusat' | 'cabang' | 'lainnya';
 };
 
-export function AddMasterDataModal({ isOpen, onClose, onSave }: AddMasterDataModalProps) {
+export function AddMasterDataModal({
+  isOpen,
+  onClose,
+  onSave,
+}: AddMasterDataModalProps) {
+  const { user } = useAuth();
+  const [units, setUnits] = useState<Unit[]>([]);
   const [targetType, setTargetType] = useState<'pusat' | 'cabang' | ''>('');
   const [division, setDivision] = useState('');
   const [branchType, setBranchType] = useState('');
-  const [branchSubType, setBranchSubType] = useState('');
   const [potensiRisiko, setPotensiRisiko] = useState('');
   const [keterangan, setKeterangan] = useState('');
 
+  // Ambil daftar unit
+  useEffect(() => {
+    fetch("http://localhost:5000/units")
+      .then((res) => res.json())
+      .then((data) => {
+        const mapped = data.map((u: any) => {
+          let type: 'pusat' | 'cabang' | 'lainnya' = 'lainnya';
+          if (u.unit_type === "Kantor Pusat" || u.unit_type === "Divisi") {
+            type = "pusat";
+          } else if (u.unit_type === "Cabang" || u.unit_type === "KCP") {
+            type = "cabang";
+          }
+          return { ...u, unit_type: type };
+        });
+        setUnits(mapped);
+      })
+      .catch((err) => console.error("Gagal fetch units:", err));
+  }, []);
+
+  // filter unit
+  const pusatUnits = units.filter((u) => u.unit_type === "pusat");
+  const cabangUnits = units.filter((u) => u.unit_type === "cabang");
+
   const isTargetSelected = useMemo(() => {
     if (targetType === 'pusat' && division) return true;
-    if (targetType === 'cabang' && branchSubType) return true;
+    if (targetType === 'cabang' && branchType) return true;
     return false;
-  }, [targetType, division, branchSubType]);
+  }, [targetType, division, branchType]);
 
   const isSaveDisabled = useMemo(() => {
     return !isTargetSelected || !potensiRisiko;
   }, [isTargetSelected, potensiRisiko]);
 
-const handleSave = () => {
-  let targetInfo = '';
-  if (targetType === 'pusat') {
-    targetInfo = `Target: ${division}`;
-  } else if (targetType === 'cabang') {
-    targetInfo = `Target: ${branchSubType}`;
+  // Simpan master baru
+const handleSave = async () => {
+  let unitId = 0;
+
+  if (targetType === "pusat") {
+    const selected = pusatUnits.find((u) => u.unit_name === division);
+    unitId = selected?.id ?? 0;
+  } else if (targetType === "cabang") {
+    const selected = cabangUnits.find((u) => u.unit_name === branchType);
+    unitId = selected?.id ?? 0;
   }
 
-  const finalKeterangan = `${targetInfo}\n${keterangan}`;
+  if (!user) {
+    console.error("❌ User belum login, tidak bisa simpan");
+    return;
+  }
 
-  const newData: Omit<RCSAData, 'no'> = {
-    potensiRisiko,
-    keterangan: finalKeterangan,
-    jenisRisiko: null,
-    penyebabRisiko: null,
-    dampakInheren: null,
-    frekuensiInheren: null,
-    pengendalian: null,
-    dampakResidual: null,
-    kemungkinanResidual: null,
-    penilaianKontrol: null,
-    actionPlan: null,
-    pic: null,
+    console.log("👤 User dari useAuth:", user);
+
+  try {
+    const newMaster = await createMasterRCSA({
+      rcsa_name: potensiRisiko,
+      description: keterangan,
+      unit_id: unitId,
+      created_by: user.id,
+    });
+
+    if (newMaster) {
+      const selectedUnit = units.find((u) => u.id === unitId);
+      onSave({
+        id: newMaster.id,
+        unit_id: newMaster.unit_id,
+        potensiRisiko,
+        keteranganAdmin: keterangan,
+        keteranganUser: "",
+        jenisRisiko: null,
+        penyebabRisiko: null,
+        dampakInheren: null,
+        frekuensiInheren: null,
+        pengendalian: null,
+        dampakResidual: null,
+        kemungkinanResidual: null,
+        penilaianKontrol: null,
+        actionPlan: null,
+        pic: null,
+        unit_name: selectedUnit?.unit_name ?? "Unit Tidak Diketahui",
+        unit_type: selectedUnit?.unit_type ?? "",
+      });
+      resetForm();
+      onClose();
+    }
+  } catch (err) {
+    console.error("❌ handleSave error:", err);
+  }
+};
+
+
+  // Reset form
+  const resetForm = () => {
+    setTargetType('');
+    setDivision('');
+    setBranchType('');
+    setPotensiRisiko('');
+    setKeterangan('');
   };
 
-  onSave(newData);
-
-  // ✅ hanya reset soal, divisi/cabang jangan dihapus
-  resetRiskForm();
-};
-
-// Reset hanya soal (biar divisi/cabang tetap ada)
-const resetRiskForm = () => {
-  setPotensiRisiko('');
-  setKeterangan('');
-};
-
-// Reset semua hanya dipanggil kalau modal ditutup
-const resetAllForm = () => {
-  setTargetType('');
-  setDivision('');
-  setBranchType('');
-  setBranchSubType('');
-  setPotensiRisiko('');
-  setKeterangan('');
-};
-
-const handleClose = () => {
-  resetAllForm(); // ✅ tetap kosongkan kalau user bener2 nutup modal
-  onClose();
-};
-
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -227,7 +161,9 @@ const handleClose = () => {
             Pilih tujuan unit kerja terlebih dahulu, kemudian isi detail risiko.
           </DialogDescription>
         </DialogHeader>
+
         <div className="grid gap-6 py-4">
+          {/* Step 1: Pilih Tujuan */}
           <div className="space-y-4 rounded-md border p-4">
             <h4 className="font-semibold text-sm">Langkah 1: Pilih Tujuan</h4>
             <div className="space-y-2">
@@ -237,7 +173,6 @@ const handleClose = () => {
                   setTargetType(value);
                   setDivision('');
                   setBranchType('');
-                  setBranchSubType('');
                 }}
                 value={targetType}
               >
@@ -252,71 +187,40 @@ const handleClose = () => {
             </div>
 
             {targetType === 'pusat' && (
+              <Select onValueChange={setDivision} value={division}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih divisi..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {pusatUnits.map((u) => (
+                    <SelectItem key={u.id} value={u.unit_name}>
+                      {u.unit_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {targetType === 'cabang' && (
               <div className="space-y-2">
-                <Label>Divisi Kantor Pusat</Label>
-                <Select onValueChange={setDivision} value={division}>
+                <Label>Jenis Kantor Cabang</Label>
+                <Select onValueChange={setBranchType} value={branchType}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Pilih divisi..." />
+                    <SelectValue placeholder="Pilih cabang..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {divisions.map((div) => (
-                      <SelectItem key={div} value={div}>
-                        {div}
+                    {cabangUnits.map((u) => (
+                      <SelectItem key={u.id} value={u.unit_name}>
+                        {u.unit_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             )}
-
-            {targetType === 'cabang' && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Pilih Kantor Cabang</Label>
-                  <Select
-                    onValueChange={(value) => {
-                      setBranchType(value);
-                      setBranchSubType('');
-                    }}
-                    value={branchType}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih kantor cabang..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(branchOptions).map((cab) => (
-                        <SelectItem key={cab} value={cab}>
-                          {cab}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {branchType && (
-                  <div className="space-y-2">
-                    <Label>Pilih Unit</Label>
-                    <Select
-                      onValueChange={setBranchSubType}
-                      value={branchSubType}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih cabang / cabang pembantu..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branchOptions[branchType].map((sub) => (
-                          <SelectItem key={sub} value={sub}>
-                            {sub}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
+          {/* Step 2: Isi Detail Risiko */}
           {isTargetSelected && (
             <div className="space-y-4 rounded-md border p-4">
               <h4 className="font-semibold text-sm">Langkah 2: Isi Detail Risiko</h4>
@@ -334,7 +238,7 @@ const handleClose = () => {
                 <Label htmlFor="keterangan">Keterangan Tambahan (Opsional)</Label>
                 <Textarea
                   id="keterangan"
-                  placeholder="Informasi atau panduan tambahan untuk unit kerja..."
+                  placeholder="Informasi atau panduan tambahan..."
                   value={keterangan}
                   onChange={(e) => setKeterangan(e.target.value)}
                   className="min-h-[60px]"
@@ -343,6 +247,7 @@ const handleClose = () => {
             </div>
           )}
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
             Batal

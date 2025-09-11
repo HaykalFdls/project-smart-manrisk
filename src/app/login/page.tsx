@@ -1,33 +1,55 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useAuth } from "@/hooks/auth-provide";
-import { Loader2 } from "lucide-react";
 
-export default function HomePage() {
-  const { isAuthenticated, loading } = useAuth();
-  const router = useRouter();
+export default function LoginPage() {
+  const { login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!loading) {
-      if (isAuthenticated) {
-        router.replace("/dashboard");
-      } else {
-        router.replace("/login");
-      }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await login(email, password);
+      window.location.href = "/dashboard"; // redirect setelah login
+    } catch {
+      setError("Email atau password salah");
     }
-  }, [isAuthenticated, loading, router]);
+  };
 
-  // sementara tampilkan loader
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white shadow-lg rounded-xl p-8 w-96">
+        <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
+        {error && <p className="text-red-500 mb-4">{error}</p>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email"
+            className="w-full border rounded-lg p-2"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            className="w-full border rounded-lg p-2"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button
+            type="submit"
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+          >
+            Login
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
-
-
 
 // "use client";
 
