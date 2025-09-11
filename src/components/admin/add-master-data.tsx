@@ -1,8 +1,8 @@
-
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/auth-provide';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { RCSAData } from '@/lib/rcsa-data';
-import { Separator } from '../ui/separator';
+import { createMasterRCSA } from '@/lib/rcsa-master-data';
 
 type AddMasterDataModalProps = {
   isOpen: boolean;
@@ -29,23 +29,47 @@ type AddMasterDataModalProps = {
   onSave: (data: Omit<RCSAData, 'no'>) => void;
 };
 
-const divisions = [
-  'Divisi Audit Internal', 'Divisi Sumber Daya Insani (SDI)', 'Divisi Perencanaan Strategis',
-  'Divisi Penyelamatan & Penyelesaian Pembiayaan (P3)', 'Divisi Pembiayaan Konsumer',
-  'Divisi Dana Jasa Ritel', 'Divisi Dana Korporasi dan Institusi (Insbank)', 'Divisi Kepatuhan',
-  'Divisi Teknologi Informasi', 'Divisi Operasional', 'Divisi Pengendalian Keuangan',
-  'Divisi Risiko Pembiayaan', 'Divisi Pembiayaan UMKM, Ritel, & Komersil', 'Divisi Manajemen Risiko',
-  'Divisi Bisnis Digital', 'Desk Sekretariat Perusahaan (Corsec)',
-  'Desk Pengembangan Produk & Prosedur (Sysdur)', 'Desk Administrasi Pembiayaan & Bisnis Legal (APBL)',
-  'Desk Legal', 'Desk Treasury'
-];
+type Unit = {
+  id: number;
+  unit_name: string;
+  unit_type: 'pusat' | 'cabang' | 'lainnya';
+};
 
-export function AddMasterDataModal({ isOpen, onClose, onSave }: AddMasterDataModalProps) {
+export function AddMasterDataModal({
+  isOpen,
+  onClose,
+  onSave,
+}: AddMasterDataModalProps) {
+  const { user } = useAuth();
+  const [units, setUnits] = useState<Unit[]>([]);
   const [targetType, setTargetType] = useState<'pusat' | 'cabang' | ''>('');
   const [division, setDivision] = useState('');
   const [branchType, setBranchType] = useState('');
   const [potensiRisiko, setPotensiRisiko] = useState('');
   const [keterangan, setKeterangan] = useState('');
+
+  // Ambil daftar unit
+  useEffect(() => {
+    fetch("http://localhost:5000/units")
+      .then((res) => res.json())
+      .then((data) => {
+        const mapped = data.map((u: any) => {
+          let type: 'pusat' | 'cabang' | 'lainnya' = 'lainnya';
+          if (u.unit_type === "Kantor Pusat" || u.unit_type === "Divisi") {
+            type = "pusat";
+          } else if (u.unit_type === "Cabang" || u.unit_type === "KCP") {
+            type = "cabang";
+          }
+          return { ...u, unit_type: type };
+        });
+        setUnits(mapped);
+      })
+      .catch((err) => console.error("Gagal fetch units:", err));
+  }, []);
+
+  // filter unit
+  const pusatUnits = units.filter((u) => u.unit_type === "pusat");
+  const cabangUnits = units.filter((u) => u.unit_type === "cabang");
 
   const isTargetSelected = useMemo(() => {
     if (targetType === 'pusat' && division) return true;
@@ -57,19 +81,41 @@ export function AddMasterDataModal({ isOpen, onClose, onSave }: AddMasterDataMod
     return !isTargetSelected || !potensiRisiko;
   }, [isTargetSelected, potensiRisiko]);
 
-  const handleSave = () => {
-    let targetInfo = '';
-    if (targetType === 'pusat') {
-        targetInfo = `Target: ${division}`;
-    } else if (targetType === 'cabang') {
-        targetInfo = `Target: ${branchType}`;
-    }
+  // Simpan master baru
+const handleSave = async () => {
+  let unitId = 0;
 
-    const finalKeterangan = `${targetInfo}\n${keterangan}`;
-    
-    const newData: Omit<RCSAData, 'no'> = {
+  if (targetType === "pusat") {
+    const selected = pusatUnits.find((u) => u.unit_name === division);
+    unitId = selected?.id ?? 0;
+  } else if (targetType === "cabang") {
+    const selected = cabangUnits.find((u) => u.unit_name === branchType);
+    unitId = selected?.id ?? 0;
+  }
+
+  if (!user) {
+    console.error("❌ User belum login, tidak bisa simpan");
+    return;
+  }
+
+    console.log("👤 User dari useAuth:", user);
+
+  try {
+    const newMaster = await createMasterRCSA({
+      rcsa_name: potensiRisiko,
+      description: keterangan,
+      unit_id: unitId,
+      created_by: user.id,
+    });
+
+    if (newMaster) {
+      const selectedUnit = units.find((u) => u.id === unitId);
+      onSave({
+        id: newMaster.id,
+        unit_id: newMaster.unit_id,
         potensiRisiko,
-        keterangan: finalKeterangan,
+        keteranganAdmin: keterangan,
+        keteranganUser: "",
         jenisRisiko: null,
         penyebabRisiko: null,
         dampakInheren: null,
@@ -80,11 +126,19 @@ export function AddMasterDataModal({ isOpen, onClose, onSave }: AddMasterDataMod
         penilaianKontrol: null,
         actionPlan: null,
         pic: null,
-    };
-    onSave(newData);
-    resetForm();
-  };
+        unit_name: selectedUnit?.unit_name ?? "Unit Tidak Diketahui",
+        unit_type: selectedUnit?.unit_type ?? "",
+      });
+      resetForm();
+      onClose();
+    }
+  } catch (err) {
+    console.error("❌ handleSave error:", err);
+  }
+};
 
+
+  // Reset form
   const resetForm = () => {
     setTargetType('');
     setDivision('');
@@ -107,82 +161,93 @@ export function AddMasterDataModal({ isOpen, onClose, onSave }: AddMasterDataMod
             Pilih tujuan unit kerja terlebih dahulu, kemudian isi detail risiko.
           </DialogDescription>
         </DialogHeader>
+
         <div className="grid gap-6 py-4">
-            <div className="space-y-4 rounded-md border p-4">
-                <h4 className="font-semibold text-sm">Langkah 1: Pilih Tujuan</h4>
-                 <div className="space-y-2">
-                    <Label>Tujuan</Label>
-                    <Select onValueChange={(value: 'pusat' | 'cabang') => {
-                        setTargetType(value);
-                        setDivision('');
-                        setBranchType('');
-                    }} value={targetType}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Pilih tujuan..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="pusat">Kantor Pusat</SelectItem>
-                        <SelectItem value="cabang">Kantor Cabang</SelectItem>
-                    </SelectContent>
-                    </Select>
-                </div>
-
-                {targetType === 'pusat' && (
-                    <div className="space-y-2">
-                    <Label>Divisi Kantor Pusat</Label>
-                    <Select onValueChange={setDivision} value={division}>
-                        <SelectTrigger>
-                        <SelectValue placeholder="Pilih divisi..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                        {divisions.map(div => <SelectItem key={div} value={div}>{div}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    </div>
-                )}
-
-                {targetType === 'cabang' && (
-                    <div className="space-y-2">
-                    <Label>Jenis Kantor Cabang</Label>
-                    <Select onValueChange={setBranchType} value={branchType}>
-                        <SelectTrigger>
-                        <SelectValue placeholder="Pilih jenis cabang..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="Kantor Cabang">Kantor Cabang</SelectItem>
-                        <SelectItem value="Kantor Cabang Pembantu">Kantor Cabang Pembantu</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    </div>
-                )}
+          {/* Step 1: Pilih Tujuan */}
+          <div className="space-y-4 rounded-md border p-4">
+            <h4 className="font-semibold text-sm">Langkah 1: Pilih Tujuan</h4>
+            <div className="space-y-2">
+              <Label>Tujuan</Label>
+              <Select
+                onValueChange={(value: 'pusat' | 'cabang') => {
+                  setTargetType(value);
+                  setDivision('');
+                  setBranchType('');
+                }}
+                value={targetType}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih tujuan..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pusat">Kantor Pusat</SelectItem>
+                  <SelectItem value="cabang">Kantor Cabang</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
+            {targetType === 'pusat' && (
+              <Select onValueChange={setDivision} value={division}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih divisi..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {pusatUnits.map((u) => (
+                    <SelectItem key={u.id} value={u.unit_name}>
+                      {u.unit_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {targetType === 'cabang' && (
+              <div className="space-y-2">
+                <Label>Jenis Kantor Cabang</Label>
+                <Select onValueChange={setBranchType} value={branchType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih cabang..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cabangUnits.map((u) => (
+                      <SelectItem key={u.id} value={u.unit_name}>
+                        {u.unit_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          {/* Step 2: Isi Detail Risiko */}
           {isTargetSelected && (
             <div className="space-y-4 rounded-md border p-4">
-                <h4 className="font-semibold text-sm">Langkah 2: Isi Detail Risiko</h4>
-                <div className="space-y-2">
-                    <Label htmlFor="potensi-risiko">Potensi Risiko</Label>
-                    <Textarea
-                    id="potensi-risiko"
-                    placeholder="Contoh: Terdapat selisih KAS Teller"
-                    value={potensiRisiko}
-                    onChange={(e) => setPotensiRisiko(e.target.value)}
-                    className="min-h-[80px]"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="keterangan">Keterangan Tambahan (Opsional)</Label>
-                    <Textarea
-                        id="keterangan"
-                        placeholder="Informasi atau panduan tambahan untuk unit kerja..."
-                        value={keterangan}
-                        onChange={(e) => setKeterangan(e.target.value)}
-                        className="min-h-[60px]"
-                    />
-                </div>
+              <h4 className="font-semibold text-sm">Langkah 2: Isi Detail Risiko</h4>
+              <div className="space-y-2">
+                <Label htmlFor="potensi-risiko">Potensi Risiko</Label>
+                <Textarea
+                  id="potensi-risiko"
+                  placeholder="Contoh: Terdapat selisih KAS Teller"
+                  value={potensiRisiko}
+                  onChange={(e) => setPotensiRisiko(e.target.value)}
+                  className="min-h-[80px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="keterangan">Keterangan Tambahan (Opsional)</Label>
+                <Textarea
+                  id="keterangan"
+                  placeholder="Informasi atau panduan tambahan..."
+                  value={keterangan}
+                  onChange={(e) => setKeterangan(e.target.value)}
+                  className="min-h-[60px]"
+                />
+              </div>
             </div>
           )}
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
             Batal
