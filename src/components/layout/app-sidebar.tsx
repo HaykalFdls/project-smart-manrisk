@@ -93,19 +93,19 @@ const mainNavItems: MenuItem[] = [
       { name: 'ATMR Risiko Kredit', href: '#' },
     ],
   },
-  {
-    icon: Waves,
-    title: 'Liquidity & Market Risk',
-    submenu: [
-      { name: 'Dashboard & Report', href: '#' },
-      { name: 'LCR', href: '#' },
-      { name: 'Risk Profile & Risk Limit', href: '#' },
-      { name: 'NSFR', href: '#' },
-      { name: 'Stress Test Likuiditas dan Pasar', href: '#' },
-      { name: 'ATMR Risiko Pasar', href: '#' },
-      { name: 'IRRBB', href: '#' },
-    ],
-  },
+  // {
+  //   icon: Waves,
+  //   title: 'Liquidity & Market Risk',
+  //   submenu: [
+  //     { name: 'Dashboard & Report', href: '#' },
+  //     { name: 'LCR', href: '#' },
+  //     { name: 'Risk Profile & Risk Limit', href: '#' },
+  //     { name: 'NSFR', href: '#' },
+  //     { name: 'Stress Test Likuiditas dan Pasar', href: '#' },
+  //     { name: 'ATMR Risiko Pasar', href: '#' },
+  //     { name: 'IRRBB', href: '#' },
+  //   ],
+  // },
   {
     icon: ShieldAlert,
     title: 'Operational Risk',
