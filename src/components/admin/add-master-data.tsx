@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/auth-provide';
+import { useAuth } from "@/context/auth-context";
 import {
   Dialog,
   DialogContent,

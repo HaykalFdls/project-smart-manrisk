@@ -2,22 +2,22 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/auth-provide";
+import { useAuth } from "@/context/auth-context";
 import { Loader2 } from "lucide-react";
 
 export default function HomePage() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, isReady } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
+    if (!isReady) {
       if (isAuthenticated) {
         router.replace("/dashboard");
       } else {
         router.replace("/login");
       }
     }
-  }, [isAuthenticated, loading, router]);
+  }, [isAuthenticated, isReady, router]);
 
   // sementara tampilkan loader
   return (

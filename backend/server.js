@@ -252,8 +252,10 @@ app.get('/rcsa/master/:unitId', async (req, res) => {
 
 // Ambil semua master RCSA (opsional: filter unit pakai query)
 app.get("/master-rcsa", async (req, res) => {
+  const { unit_id } = req.query;
+
   try {
-    const [rows] = await db.query(`
+    let query = `
       SELECT 
         m.id,
         m.rcsa_name,
@@ -263,7 +265,15 @@ app.get("/master-rcsa", async (req, res) => {
       FROM rcsa_master m
       LEFT JOIN rcsa_master_units mu ON m.id = mu.rcsa_master_id
       LEFT JOIN units u ON mu.unit_id = u.id
-    `);
+    `;
+    const params = [];
+
+    if (unit_id) {
+      query += " WHERE mu.unit_id = ?";
+      params.push(unit_id);
+    }
+
+    const [rows] = await db.query(query, params);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -271,34 +281,44 @@ app.get("/master-rcsa", async (req, res) => {
   }
 });
 
+// Tmambah Data Master RCSA
+app.post("/master-rcsa", async (req, res) => {
+  const { rcsa_name, description, unit_id } = req.body;
+  const created_by = req.headers["authorization-user"]; // ambil dari header
 
-// Tambah master RCSA
-app.post('/master-rcsa', async (req, res) => {
-  const { rcsa_name, description, unit_id  } = req.body;
-  console.log("REQ BODY:", req.body);
-
-  const created_by = req.headers["authorization-user"];
-
+  if (!rcsa_name || !unit_id) {
+    return res.status(400).json({ message: "rcsa_name dan unit_id wajib diisi" });
+  }
   if (!created_by) {
-      return res.status(400).json({ message: "User ID tidak ditemukan di header" });
-    }
-  
-    try {
-      const [result] = await db.execute(
-        'INSERT INTO rcsa_master (rcsa_name, description, created_by) VALUES (?, ?, ?)',
-        [rcsa_name, description, created_by]
-      );
-    
-      await db.execute(
-        'INSERT INTO rcsa_master_units (rcsa_master_id, unit_id) VALUES (?, ?)',
-        [result.insertId, unit_id]
-      );
-    
-      res.json({ id: result.insertId, rcsa_name, description, unit_id, created_by });
-    } catch (err) {
-      console.error("createMasterRCSA error:", err);
-      res.status(500).json({ message: "Gagal tambah master RCSA" });
-    }
+    return res.status(400).json({ message: "created_by wajib dikirim" });
+  }
+
+  try {
+    // Insert ke rcsa_master
+    const [result] = await db.execute(
+      "INSERT INTO rcsa_master (rcsa_name, description, created_by) VALUES (?, ?, ?)",
+      [rcsa_name, description || null, created_by]
+    );
+
+    const masterId = result.insertId;
+
+    // Hubungkan dengan unit
+    await db.execute(
+      "INSERT INTO rcsa_master_units (rcsa_master_id, unit_id) VALUES (?, ?)",
+      [masterId, unit_id]
+    );
+
+    res.json({
+      id: masterId,
+      rcsa_name,
+      description,
+      unit_id,
+      created_by,
+    });
+  } catch (err) {
+    console.error("❌ Error tambah master RCSA:", err);
+    res.status(500).json({ message: "Gagal tambah master RCSA" });
+  }
 });
 
 // Update master RCSA
@@ -338,26 +358,101 @@ app.delete('/master-rcsa/:id', async (req, res) => {
 
 
 // ======== RCSA ASSESSMENT =============
+
+// Ambil draft assessment by user & unit
+app.get('/rcsa/assessment', async (req, res) => {
+  const { created_by, unit_id } = req.query;
+
+  try {
+    let query = `
+      SELECT ra.*
+      FROM rcsa_assessment ra
+      JOIN rcsa_master_units rmu ON ra.rcsa_master_id = rmu.rcsa_master_id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (created_by) {
+      query += ` AND ra.created_by = ?`;
+      params.push(created_by);
+    }
+    if (unit_id) {
+      query += ` AND ra.unit_id = ? AND rmu.unit_id = ?`;
+      params.push(unit_id, unit_id);
+    }
+
+    // default hanya ambil draft
+    query += ` AND ra.status = 'draft'`;
+
+    const [rows] = await db.execute(query, params);
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ Error ambil draft:", err);
+    res.status(500).json({ message: 'Gagal ambil draft RCSA' });
+  }
+});
+
+
+// Ambil detail assessment by ID
+app.get('/rcsa/assessment/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await db.execute(
+      `SELECT * FROM rcsa_assessment WHERE id = ?`,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Assessment tidak ditemukan" });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("❌ Error ambil detail:", err);
+    res.status(500).json({ message: 'Gagal ambil detail assessment' });
+  }
+});
+
 app.post('/rcsa/assessment', async (req, res) => {
   const data = req.body;
   try {
     const [result] = await db.execute(`
       INSERT INTO rcsa_assessment 
-      (rcsa_master_id, unit_id, created_by, risk_description, dampak_inheren, frekuensi_inheren, pengendalian, status) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (
+        rcsa_master_id, unit_id, created_by,
+        jenis_risiko, risk_description, penyebab_risiko,
+        dampak_inheren, frekuensi_inheren, nilai_inheren, level_inheren,
+        pengendalian,
+        dampak_residual, kemungkinan_residual, nilai_residual, level_residual,
+        penilaian_kontrol, action_plan, pic,
+        status
+      ) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      data.rcsa_master_id, 
-      data.unit_id, 
-      data.created_by, 
-      data.risk_description, 
-      data.dampak_inheren, 
-      data.frekuensi_inheren, 
-      data.pengendalian, 
+      data.rcsa_master_id,
+      data.unit_id,
+      data.created_by,
+      data.jenis_risiko || null,
+      data.risk_description || null,
+      data.penyebab_risiko || null,
+      data.dampak_inheren || null,
+      data.frekuensi_inheren || null,
+      data.nilai_inheren || null,
+      data.level_inheren || null,
+      data.pengendalian || null,
+      data.dampak_residual || null,
+      data.kemungkinan_residual || null,
+      data.nilai_residual || null,
+      data.level_residual || null,
+      data.penilaian_kontrol || null,
+      data.action_plan || null,
+      data.pic || null,
       data.status || 'draft'
     ]);
+
     res.json({ id: result.insertId, ...data });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error insert assessment:", err);
     res.status(500).json({ message: 'Gagal simpan assessment' });
   }
 });

@@ -115,27 +115,29 @@ export default function RcsaManagementPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={(newData) => {
-          setData((prev) => [
-            ...prev,
-            {
-              no: prev.length + 1,
-              potensiRisiko: newData.potensiRisiko,
-              keteranganAdmin: newData.keteranganAdmin || "",
-              id: newData.id,
-              unit_id: newData.unit_id,
-              unit_name: newData.unit_name,
-            } as RCSAData,
-          ]);
+        const safeUnitName = newData.unit_name ?? "Unit Tidak Diketahui";
 
-          setNewUnits((prev) => {
-            if (!prev.includes(newData.unit_name)) {
-              return [...prev, newData.unit_name];
-            }
-            return prev;
-          });
-
-          toast({ title: "Sukses", description: `Data baru ditambahkan ke unit ${newData.unit_name}` });
-        }}
+        setData((prev) => [
+          ...prev,
+          {
+            no: prev.length + 1,
+            potensiRisiko: newData.potensiRisiko,
+            keteranganAdmin: newData.keteranganAdmin || "",
+            id: newData.id,
+            unit_id: newData.unit_id,
+            unit_name: safeUnitName,
+          } as RCSAData,
+        ]);
+      
+        setNewUnits((prev) => {
+          if (!prev.includes(safeUnitName)) {
+            return [...prev, safeUnitName];
+          }
+          return prev;
+        });
+      
+        toast({ title: "Sukses", description: `Data baru ditambahkan ke unit ${safeUnitName}` });
+      }}
       />
 
       <div className="flex flex-1 flex-col p-4 md:p-6 lg:p-8">
