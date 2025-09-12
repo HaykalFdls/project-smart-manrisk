@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/hooks/auth-provide";
+import { useAuth } from "@/context/auth-context";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { useRouter, usePathname } from "next/navigation";
