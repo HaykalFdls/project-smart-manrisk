@@ -1,11 +1,12 @@
-'use client';
+"use client";
 
 import { MasterRCSA, fetchMasterRCSA } from "./rcsa-master-data";
 
 export type RCSAData = {
-  id?: number;              // ID dari database (opsional kalau baru dibuat di frontend)
+  id?: number;               // id assessment
   no: number;
-  unit_id?: number;         // Unit kerja
+  rcsa_master_id?: number;   // link ke master
+  unit_id?: number;
   unit_name?: string;
   unit_type?: string;
   potensiRisiko: string;
@@ -21,13 +22,15 @@ export type RCSAData = {
   pic: string | null;
   keteranganAdmin: string | null;
   keteranganUser: string | null;
+  status?: "draft" | "submitted" | "reviewed";
 };
 
-export function mapMasterToRCSA(master: MasterRCSA, no: number): RCSAData {
+export function mapMasterToRCSA(master: MasterRCSA, no: number, userId: number, unitId: number): RCSAData {
   return {
-    id: master.id,
+    id: undefined,
     no,
-    unit_id: master.unit_id,
+    rcsa_master_id: master.id,
+    unit_id: unitId,
     potensiRisiko: master.rcsa_name,
     jenisRisiko: null,
     penyebabRisiko: null,
@@ -41,134 +44,94 @@ export function mapMasterToRCSA(master: MasterRCSA, no: number): RCSAData {
     pic: null,
     keteranganAdmin: master.description || null,
     keteranganUser: null,
+    status: "draft",
   };
 }
 
-export type RCSASubmission = {
-  id: string;
-  submittedAt: string;
-  division: string | null;
-  data: RCSAData[];
-};
+// ================= API CALLS =================
 
-const RCSA_DRAFT_KEY = 'rcsaDraftStore';
-const RCSA_SUBMISSIONS_KEY = 'rcsaSubmissionsStore';
+const API_BASE = "http://localhost:5000";
 
-const parseTarget = (keterangan: string | null): string | null => {
-  if (!keterangan) return null;
-  const match = keterangan.match(/^Target: (.*)/);
-  return match ? match[1] : null;
-};
-
-// --- Functions for Draft Data (User's current work) ---
-
-// Ambil DRAFT, fallback ke master jika kosong
-export const getRcsaDraft = async (): Promise<RCSAData[]> => {
-  if (typeof window === 'undefined') {
-    return [];
-  }
+// Ambil draft user (assessment yang belum submit)
+export const getRcsaDraft = async (userId: number, unitId: number): Promise<RCSAData[]> => {
   try {
-    const item = window.localStorage.getItem(RCSA_DRAFT_KEY);
-    if (item) {
-      const parsed = JSON.parse(item);
-      return parsed.map((d: any) => ({
-        ...d,
-        keteranganAdmin: d.keteranganAdmin ?? d.keterangan,
-        keteranganUser: d.keteranganUser ?? null
-      }));
+    // 🔹 Ambil draft assessment dari backend
+    const res = await fetch(`${API_BASE}/rcsa/assessment?created_by=${userId}&unit_id=${unitId}`);
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("❌ Fetch gagal:", res.status, text);
+      throw new Error("Gagal ambil draft RCSA");
     }
-    // Ambil master data dari API
-    const master = await fetchMasterRCSA();
-    const masterData = master.map((m, i) => mapMasterToRCSA(m, i + 1));
-    window.localStorage.setItem(RCSA_DRAFT_KEY, JSON.stringify(masterData));
-    return masterData;
-  } catch (error) {
-    console.error("Failed to read draft from localStorage", error);
-    const master = await fetchMasterRCSA();
-    return master.map((m, i) => mapMasterToRCSA(m, i + 1));
-  }
-};
+    const data = await res.json();
+    if (data.length > 0) return data;
 
-// Update draft
-export const updateRcsaDraft = (newData: RCSAData[]) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  try {
-    window.localStorage.setItem(RCSA_DRAFT_KEY, JSON.stringify(newData));
-  } catch (error) {
-    console.error("Failed to write draft to localStorage", error);
-  }
-};
+    // 🔹 Kalau belum ada draft → generate dari master sesuai unit
+    const masterRes = await fetch(`${API_BASE}/rcsa/master/${unitId}`);
+    if (!masterRes.ok) throw new Error("Gagal ambil master RCSA");
 
-// --- Functions for Submissions (Admin view) ---
-export const getAllRcsaSubmissions = (): RCSASubmission[] => {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-  try {
-    const item = window.localStorage.getItem(RCSA_SUBMISSIONS_KEY);
-    const parsed = item ? JSON.parse(item) : [];
-    return parsed.map((submission: any) => ({
-      ...submission,
-      data: submission.data.map((d: any) => ({
-        ...d,
-        keteranganAdmin: d.keteranganAdmin ?? d.keterangan,
-        keteranganUser: d.keteranganUser ?? null
-      }))
-    }));
-  } catch (error) {
-    console.error("Failed to read submissions from localStorage", error);
+    const master = await masterRes.json();
+    return master.map((m: any, i: number) =>
+      mapMasterToRCSA(m, i + 1, userId, unitId)
+    );
+  } catch (err) {
+    console.error("getRcsaDraft error:", err);
     return [];
   }
 };
 
-export const addRcsaSubmission = (submissionData: RCSAData[]) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
+// Simpan assessment (insert ke DB)
+export const saveRcsaAssessment = async (row: RCSAData, userId: number, unitId: number) => {
+  const payload = {
+    rcsa_master_id: row.rcsa_master_id,
+    unit_id: unitId,
+    created_by: userId,
+    jenis_risiko: row.jenisRisiko,
+    penyebab_risiko: row.penyebabRisiko,
+    risk_description: row.potensiRisiko,
+    dampak_inheren: row.dampakInheren,
+    frekuensi_inheren: row.frekuensiInheren,
+    pengendalian: row.pengendalian,
+    dampak_residual: row.dampakResidual,
+    kemungkinan_residual: row.kemungkinanResidual,
+    penilaian_kontrol: row.penilaianKontrol,
+    action_plan: row.actionPlan,
+    pic: row.pic,
+    status: "draft",
+  };
+
+  const res = await fetch(
+    row.id ? `${API_BASE}/rcsa/assessment/${row.id}` : `${API_BASE}/rcsa/assessment`,
+    {
+      method: row.id ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!res.ok) throw new Error("Gagal simpan assessment");
+  return await res.json();
+};
+
+// Submit assessment (ubah status ke submitted)
+export const submitRcsaAssessment = async (id: number) => {
   try {
-    const allSubmissions = getAllRcsaSubmissions();
-    const division = submissionData.length > 0 ? parseTarget(submissionData[0].keteranganAdmin) : null;
-
-    const newSubmission: RCSASubmission = {
-      id: (allSubmissions.length + 1).toString(),
-      submittedAt: new Date().toISOString(),
-      division,
-      data: submissionData,
-    };
-    const updatedSubmissions = [...allSubmissions, newSubmission];
-    window.localStorage.setItem(RCSA_SUBMISSIONS_KEY, JSON.stringify(updatedSubmissions));
-
-    updateRcsaDraft([]); // reset draft setelah submit
-  } catch (error) {
-    console.error("Failed to add submission to localStorage", error);
+    const res = await fetch(`${API_BASE}/rcsa/assessment/${id}/submit`, { method: "PUT" });
+    if (!res.ok) throw new Error("Gagal submit assessment");
+    return await res.json();
+  } catch (err) {
+    console.error("submitRcsaAssessment error:", err);
+    throw err;
   }
 };
 
-// --- Functions for Master Data Template (Admin management) ---
-export const getRcsaData = async (): Promise<RCSAData[]> => {
-  const master = await fetchMasterRCSA();
-  return master.map((m, i) => mapMasterToRCSA(m, i + 1));
-};
-
-export const updateRcsaData = (newData: RCSAData[]) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
+// Ambil semua submissions (untuk admin)
+export const getAllRcsaSubmissions = async (): Promise<RCSAData[]> => {
   try {
-    const allSubmissions = getAllRcsaSubmissions();
-    const targetsToUpdate = new Set(newData.map(d => parseTarget(d.keteranganAdmin)));
-
-    targetsToUpdate.forEach(target => {
-      if (!target) return;
-      const relevantData = newData.filter(d => parseTarget(d.keteranganAdmin) === target);
-      const draftKey = `rcsaDraft_${target}`;
-      window.localStorage.setItem(draftKey, JSON.stringify(relevantData));
-    });
-
-    window.localStorage.setItem(RCSA_DRAFT_KEY, JSON.stringify(newData));
-  } catch (error) {
-    console.error("Failed to update master data in localStorage", error);
+    const res = await fetch(`${API_BASE}/rcsa/assessment`);
+    if (!res.ok) throw new Error("Gagal ambil submissions");
+    return await res.json();
+  } catch (err) {
+    console.error("getAllRcsaSubmissions error:", err);
+    return [];
   }
 };

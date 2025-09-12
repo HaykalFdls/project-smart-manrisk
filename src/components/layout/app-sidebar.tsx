@@ -36,7 +36,7 @@ import {
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from "@/hooks/auth-provide";
+import { useAuth } from "@/context/auth-context";
 import {
   Dialog,
   DialogContent,

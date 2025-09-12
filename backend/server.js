@@ -220,8 +220,10 @@ app.get("/units", async (req, res) => {
 
 // ======== RCSA MASTER ============
 app.get("/master-rcsa", async (req, res) => {
+  const { unit_id } = req.query;
+
   try {
-    const [rows] = await db.query(`
+    let query = `
       SELECT 
         m.id,
         m.rcsa_name,
@@ -233,7 +235,15 @@ app.get("/master-rcsa", async (req, res) => {
       FROM rcsa_master m
       LEFT JOIN rcsa_master_units mu ON m.id = mu.rcsa_master_id
       LEFT JOIN units u ON mu.unit_id = u.id
-    `);
+    `;
+    const params = [];
+
+    if (unit_id) {
+      query += " WHERE mu.unit_id = ?";
+      params.push(unit_id);
+    }
+
+    const [rows] = await db.query(query, params);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -241,24 +251,7 @@ app.get("/master-rcsa", async (req, res) => {
   }
 });
 
-app.post("/master-rcsa", async (req, res) => {
-  const { rcsa_name, description, unit_id } = req.body;
-  const created_by = req.headers["authorization-user"];
-  if (!created_by)
-    return res.status(400).json({ message: "User ID tidak ditemukan di header" });
 
-  try {
-    const [result] = await db.execute(
-      "INSERT INTO rcsa_master (rcsa_name, description, created_by) VALUES (?, ?, ?)",
-      [rcsa_name, description, created_by]
-    );
-    await db.execute(
-      "INSERT INTO rcsa_master_units (rcsa_master_id, unit_id) VALUES (?, ?)",
-      [result.insertId, unit_id]
-    );
-    res.json({ id: result.insertId, rcsa_name, description, unit_id, created_by });
-  } catch (err) {
-    console.error("createMasterRCSA error:", err);
     res.status(500).json({ message: "Gagal tambah master RCSA" });
   }
 });
@@ -280,7 +273,7 @@ app.put("/master-rcsa/:id", async (req, res) => {
     res.json({ id, rcsa_name, description, unit_id });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Gagal update master RCSA" });
+
   }
 });
 

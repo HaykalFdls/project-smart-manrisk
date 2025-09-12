@@ -10,10 +10,15 @@ export type MasterRCSA = {
 
 const API_URL = "http://localhost:5000";
 
-export async function getRcsaMasterData(): Promise<RCSAData[]> {
-  const masters = await fetchMasterRCSA();
-  return masters.map((m, idx) => mapMasterToRCSA(m, idx + 1));
+// Ambil master RCSA untuk user tertentu
+export async function getRcsaMasterData(
+  unitId: number,
+  userId: number
+): Promise<RCSAData[]> {
+  const masters = await fetchMasterRCSA(unitId);
+  return masters.map((m, idx) => mapMasterToRCSA(m, idx + 1, userId, unitId));
 }
+
 
 // Ambil daftar master RCSA per unit
 export async function fetchMasterRCSA(unitId?: number): Promise<MasterRCSA[]> {
@@ -32,14 +37,14 @@ export async function createMasterRCSA(data: {
   rcsa_name: string;
   description: string;
   unit_id: number;
-  created_by?: number;
+  created_by: number;   // WAJIB user.id valid
 }): Promise<MasterRCSA | null> {
   try {
     const res = await fetch(`${API_URL}/master-rcsa`, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
-        "authorization-user": String(data.created_by ?? 1), // ⬅️ user id dikirim via header
+        "authorization-user": String(data.created_by), // ⬅️ kirim user.id valid
       },
       body: JSON.stringify({
         rcsa_name: data.rcsa_name,

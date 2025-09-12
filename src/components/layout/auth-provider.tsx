@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { AuthContext } from "@/context/auth-context";
+import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import Spinner from "@/components/spinner";
 
