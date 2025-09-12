@@ -119,29 +119,29 @@ const mainNavItems: MenuItem[] = [
       { name: 'Stress Test Operasional', href: '#' },
     ],
   },
-  {
-    icon: ServerCog,
-    title: 'IT Risk Management',
-    submenu: [
-      { name: 'Dashboard & Report', href: '#' },
-      { name: 'Profil Risiko Ketahanan & Keamanan Siber', href: '#' },
-      { name: 'Tingkat Maturitas Digital Bank', href: '#' },
-      { name: 'CSIRT', href: '#' },
-      { name: 'Risk Profile & Risk Limit', href: '#' },
-    ],
-  },
-  {
-    icon: ShieldCheck,
-    title: 'BCMS',
-    submenu: [
-      { name: 'Dashboard & report', href: '#' },
-      { name: 'Business Impact Analysis', href: '#' },
-      { name: 'Risk & Threat Assessment', href: '#' },
-      { name: 'Business Continuity Plan (BCP)', href: '#' },
-      { name: 'Disaster Recovery Plan (DRP)', href: '#' },
-      { name: 'Recovery & Resolution Plan', href: '#' },
-    ],
-  },
+  // {
+  //   icon: ServerCog,
+  //   title: 'IT Risk Management',
+  //   submenu: [
+  //     { name: 'Dashboard & Report', href: '#' },
+  //     { name: 'Profil Risiko Ketahanan & Keamanan Siber', href: '#' },
+  //     { name: 'Tingkat Maturitas Digital Bank', href: '#' },
+  //     { name: 'CSIRT', href: '#' },
+  //     { name: 'Risk Profile & Risk Limit', href: '#' },
+  //   ],
+  // },
+  // {
+  //   icon: ShieldCheck,
+  //   title: 'BCMS',
+  //   submenu: [
+  //     { name: 'Dashboard & report', href: '#' },
+  //     { name: 'Business Impact Analysis', href: '#' },
+  //     { name: 'Risk & Threat Assessment', href: '#' },
+  //     { name: 'Business Continuity Plan (BCP)', href: '#' },
+  //     { name: 'Disaster Recovery Plan (DRP)', href: '#' },
+  //     { name: 'Recovery & Resolution Plan', href: '#' },
+  //   ],
+  // },
   { icon: FileText, title: 'Regulation Update', href: '#' },
   { icon: Gavel, title: 'Governance & Compliance', href: '#' },
 ];
