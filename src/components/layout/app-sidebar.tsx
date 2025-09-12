@@ -149,13 +149,22 @@ const mainNavItems: MenuItem[] = [
 const adminNavItems: MenuItem[] = [
   {
     icon: Shield,
-    title: 'Admin',
+    title: 'Admin RCSA',
     submenu: [
       { name: 'Kelola Master RCSA', href: '/admin/rcsa-management' },
       { name: 'Laporan RCSA', href: '/admin/rcsa-report' },
     ],
   },
+  {
+    icon: Shield,
+    title: 'Admin Risk Register',
+    submenu: [
+      { name: 'Risk Register Management', href: '/admin/risk-register' },
+    ],
+  },
 ];
+
+
 
 const footerNavItems: MenuItem[] = [
   { icon: Settings, title: 'Settings', href: '#' },
