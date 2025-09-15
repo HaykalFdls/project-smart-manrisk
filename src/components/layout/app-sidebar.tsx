@@ -110,7 +110,7 @@ const adminNavItems: MenuItem[] = [
     title: "Admin Risk Register",
     submenu: [
       { name: "Kelola Risk Register", href: "/admin/risk-management" },
-      { name: "Laporan Risk Register", href: "" },
+      { name: "Laporan Risk Register", href: "/admin/risk-report" },
     ],
   },
 ];
