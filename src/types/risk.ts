@@ -25,7 +25,7 @@ export interface Risk {
   pemilik_risiko: number;
   pemilik_nama?: string;
   jabatan?: string;
-  divisi?: string;
+  unit_kerja?: string;
   keterangan?: string;
   fraud_indicator?: boolean;
 }

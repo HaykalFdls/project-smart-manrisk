@@ -7,9 +7,7 @@ import * as z from "zod";
 
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { fetchRisks, createRisk, updateRisk, deleteRisk } from "@/lib/api";
-import { fetchUsers } from "@/lib/api";
-import axios from "axios";
+import { fetchUsers, fetchRisks, createRisk, updateRisk, deleteRisk } from "@/lib/risk-register";
 import {Risk} from "@/types/risk";
 import {User} from "@/types/user";
 
@@ -66,11 +64,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
@@ -116,7 +110,7 @@ export default function RiskRegisterPage() {
   const [deletingRisk, setDeletingRisk] = useState<Risk | null>(null);
 
   const userNameMap = Object.fromEntries(users.map(u => [u.id, u.name]));
-  const userDivisionMap = Object.fromEntries(users.map(u => [u.id, u.division]));
+  const userDivisionMap = Object.fromEntries(users.map(u => [u.id, u.unit_id]));
 
 useEffect(() => {
   const loadData = async () => {
@@ -269,7 +263,7 @@ const handleEditRisk = (risk: Risk) => {
           kriteria_penerimaan_risiko: values.kriteria_penerimaan_risiko,
           pemilik_risiko: parseInt(values.pemilik_risiko),
           keterangan: values.keterangan,
-          divisi: selectedDivision,
+          unit_kerja: selectedDivision,
         };
       
         const updated = await updateRisk(editingRisk.id, payload);
@@ -339,8 +333,7 @@ const filteredRisks = selectedDivision
     <>
       <PageHeader
         title="Operational Risk Register"
-        description="Total Risk Event / Potensi Risiko"
-      />
+        description="Total Risk Event / Potensi Risiko"/>
       <div style={{ display: 'flex', gap: '16px' }}>
         <Card style={{ flex: 1 }}>
           <CardContent className="p-0">
@@ -355,10 +348,8 @@ const filteredRisks = selectedDivision
 <TableBody>
   {divisionTotals.map((division, index) => (
     <TableRow
-      key={`${division.name}-${index}`} // ✅ kombinasi string-index
-      onClick={() => handleDivisionClick(division.name)}
-      className="cursor-pointer"
-    >
+      key={`${division.name}-${index}`}
+      onClick={() => handleDivisionClick(division.name)} className="cursor-pointer">
       <TableCell className="font-medium">{division.name}</TableCell>
       <TableCell className="text-right">{division.total}</TableCell>
     </TableRow>
@@ -369,7 +360,7 @@ const filteredRisks = selectedDivision
           </CardContent>
         </Card>
         {/* Card baru di samping card pertama */}
-        <Card style={{ flex: 1 }}>
+        {/* <Card style={{ flex: 1 }}>
           <CardContent>
             <Table>
               <TableHeader>
@@ -378,7 +369,7 @@ const filteredRisks = selectedDivision
                   <TableHead className="text-right">Total RE/PR</TableHead>
                 </TableRow>
               </TableHeader>
-              {/* <TableBody>
+              <TableBody>
                 {divisionTotals.map((division) => (
                   <TableRow
                     key={division.name}
@@ -389,10 +380,10 @@ const filteredRisks = selectedDivision
                     <TableCell className="text-right">{division.total}</TableCell>
                   </TableRow>
                 ))}
-              </TableBody> */}
+              </TableBody>
             </Table>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </>
   );

@@ -274,7 +274,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
+              {/* <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setCollapsed(!collapsed)}
                   className="flex items-center gap-2"
@@ -282,7 +282,7 @@ export function AppSidebar() {
                   {collapsed ? <ChevronRight /> : <ChevronLeft />}
                   {!collapsed && <span>Collapse</span>}
                 </SidebarMenuButton>
-              </SidebarMenuItem>
+              </SidebarMenuItem> */}
             </SidebarMenu>
           </SidebarFooter>
         </div>

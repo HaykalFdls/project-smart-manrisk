@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, Lock } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
-import Image from "next/image"; // pakai next/image biar optimal
+import Image from "next/image"; 
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -51,7 +51,7 @@ export default function LoginPage() {
 
         {/* Judul */}
         <h2 className="text-3xl font-extrabold mb-6 text-center text-red-700">
-          LOGIN SMART
+          SMART
         </h2>
 
         {/* Error message */}
