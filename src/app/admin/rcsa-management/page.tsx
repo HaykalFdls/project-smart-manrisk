@@ -66,7 +66,10 @@ export default function RcsaManagementPage() {
           });
         }
       }
-      toast({ title: "Sukses", description: "Data master RCSA berhasil diperbarui" });
+      toast({
+        title: "Sukses",
+        description: "Data master RCSA berhasil diperbarui",
+      });
     } catch (err) {
       console.error(err);
       toast({ title: "Error", description: "Gagal menyimpan perubahan" });
@@ -81,7 +84,11 @@ export default function RcsaManagementPage() {
         await fetch(`http://localhost:5000/master-rcsa/${row.id}`, {
           method: "DELETE",
         });
-        setData((prev) => prev.filter((r) => r.id !== row.id));
+        setData((prev) =>
+          prev
+            .filter((r) => r.id !== row.id)
+            .map((r, idx) => ({ ...r, no: idx + 1 }))
+        );
         toast({ title: "Dihapus", description: "Master RCSA berhasil dihapus" });
       } catch (err) {
         console.error(err);
@@ -92,7 +99,10 @@ export default function RcsaManagementPage() {
 
   if (isLoading) return <div className="p-8">Memuat data...</div>;
 
-  const unitOptions = Array.from(new Set(data.map((d) => d.unit_name || "Unit Tidak Diketahui")));
+  // langsung daftar unit/divisi, tanpa kategori pusat/cabang
+  const unitOptions = Array.from(
+    new Set(data.map((d) => d.unit_name || "Unit Tidak Diketahui"))
+  );
   const filteredData = data.filter((d) => d.unit_name === selectedUnit);
 
   return (
@@ -103,14 +113,17 @@ export default function RcsaManagementPage() {
         onSave={(newData) => {
           setData((prev) => [
             {
-              no: prev.length + 1,
+              no: 1, // selalu muncul di atas
               potensiRisiko: newData.potensiRisiko,
               keteranganAdmin: newData.keteranganAdmin || "",
               id: newData.id,
               unit_id: newData.unit_id,
               unit_name: newData.unit_name ?? "Unit Tidak Diketahui",
             },
-            ...prev,
+            ...prev.map((r, idx) => ({
+              ...r,
+              no: idx + 2, // geser nomor ke bawah
+            })),
           ]);
           toast({ title: "Sukses", description: `Data baru ditambahkan.` });
         }}
@@ -129,7 +142,8 @@ export default function RcsaManagementPage() {
               <PlusCircle className="mr-2 h-4 w-4" /> Tambah Risiko
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
-              <Save className="mr-2 h-4 w-4" /> {isSaving ? "Menyimpan..." : "Simpan"}
+              <Save className="mr-2 h-4 w-4" />{" "}
+              {isSaving ? "Menyimpan..." : "Simpan"}
             </Button>
           </div>
         </div>
@@ -174,7 +188,9 @@ export default function RcsaManagementPage() {
                           onChange={(e) =>
                             setData((prev) =>
                               prev.map((r) =>
-                                r.id === row.id ? { ...r, potensiRisiko: e.target.value } : r
+                                r.id === row.id
+                                  ? { ...r, potensiRisiko: e.target.value }
+                                  : r
                               )
                             )
                           }
@@ -186,7 +202,9 @@ export default function RcsaManagementPage() {
                           onChange={(e) =>
                             setData((prev) =>
                               prev.map((r) =>
-                                r.id === row.id ? { ...r, keteranganAdmin: e.target.value } : r
+                                r.id === row.id
+                                  ? { ...r, keteranganAdmin: e.target.value }
+                                  : r
                               )
                             )
                           }
@@ -207,10 +225,14 @@ export default function RcsaManagementPage() {
               </table>
             </div>
           ) : (
-            <p className="text-muted-foreground">Belum ada data untuk unit ini.</p>
+            <p className="text-muted-foreground">
+              Belum ada data untuk unit ini.
+            </p>
           )
         ) : (
-          <p className="text-muted-foreground">Silakan pilih unit terlebih dahulu.</p>
+          <p className="text-muted-foreground">
+            Silakan pilih unit terlebih dahulu.
+          </p>
         )}
       </div>
     </>
