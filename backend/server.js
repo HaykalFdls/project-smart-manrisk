@@ -16,6 +16,7 @@ const db = await mysql.createConnection({
 
 // ======== USERS =============
 
+// Ambil semua user
 app.get('/users', async (req, res) => {
   const [rows] = await db.execute(`
     SELECT u.id, u.name, u.email, u.unit_id, u.status, r.role_name
@@ -25,6 +26,7 @@ app.get('/users', async (req, res) => {
   res.json(rows);
 });
 
+// Tambah user
 app.post('/users', async (req, res) => {
   const { name, email, password, unit_id, role_id, status } = req.body;
   console.log("Req Body: ", req.body);
@@ -45,6 +47,7 @@ app.post('/users', async (req, res) => {
 
 // ======== ROLES =============
 
+// Ambil semua roles
 app.get('/roles', async (req, res) => {
   const [rows] = await db.execute('SELECT * FROM roles');
   res.json(rows);
@@ -52,6 +55,7 @@ app.get('/roles', async (req, res) => {
 
 // ======== ROLE PERMISSIONS =============
 
+// Ambil permission berdasarkan role
 app.get('/roles/:roleId/permissions', async (req, res) => {
   const { roleId } = req.params;
   const [rows] = await db.execute(
@@ -67,10 +71,6 @@ app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-
-    const [rows] = await db.execute("SELECT * FROM users WHERE email = ?", [email]);
-    if (rows.length === 0) return res.status(401).json({ message: "Email tidak ditemukan" });
-
     // Cari user berdasarkan email
     const [rows] = await db.execute(
       "SELECT * FROM users WHERE email = ?",
@@ -80,7 +80,6 @@ app.post("/login", async (req, res) => {
     if (rows.length === 0) {
       return res.status(401).json({ message: "Email tidak ditemukan" });
     }
-
 
     const user = rows[0];
 
@@ -128,6 +127,7 @@ app.get('/risks', async (req, res) => {
 });
 
 
+// POST risk
 app.post('/risks', async (req, res) => {
   const data = req.body;
   console.log('Incoming data:', req.body); 
@@ -155,22 +155,12 @@ app.post('/risks', async (req, res) => {
 });
 
 const safe = (val) => val ?? null;
-
 // PUT risk
-
 app.put('/risks/:id', async (req, res) => {
   const { id } = req.params;
   const data = req.body;
 
   const values = [
-
-    safe(data.kategori_risiko), safe(data.jenis_risiko), safe(data.skenario_risiko), safe(data.root_cause),
-    safe(data.dampak), safe(data.dampak_keuangan), safe(data.tingkat_dampak_keuangan), safe(data.dampak_operasional),
-    safe(data.tingkat_dampak_operasional), safe(data.dampak_reputasi), safe(data.tingkat_dampak_reputasi),
-    safe(data.dampak_regulasi), safe(data.tingkat_dampak_regulasi), safe(data.skor_kemungkinan), safe(data.tingkat_kemungkinan),
-    safe(data.nilai_risiko), safe(data.tingkat_risiko), safe(data.rencana_penanganan), safe(data.deskripsi_rencana_penanganan),
-    safe(data.risiko_residual), safe(data.kriteria_penerimaan_risiko), safe(data.pemilik_risiko), id
-
     safe(data.kategori_risiko),
     safe(data.jenis_risiko),
     safe(data.skenario_risiko),
@@ -194,7 +184,6 @@ app.put('/risks/:id', async (req, res) => {
     safe(data.kriteria_penerimaan_risiko),
     safe(data.pemilik_risiko),
     id
-
   ];
 
   try {
@@ -217,7 +206,7 @@ app.put('/risks/:id', async (req, res) => {
   }
 });
 
-
+// DELETE risk
 app.delete('/risks/:id', async (req, res) => {
   const { id } = req.params;
   await db.execute(`DELETE FROM risks WHERE id=?`, [id]);
@@ -237,10 +226,26 @@ app.get('/units', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Gagal ambil data units' });
-
-=======
   }
 });
+
+// GET detail unit by ID
+app.get("/units/:id", async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT id, unit_name, unit_type FROM units WHERE id = ?",
+      [req.params.id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Unit tidak ditemukan" });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Gagal mengambil detail unit" });
+  }
+});
+
 
 // ======== RCSA MASTER =============
 
@@ -258,7 +263,6 @@ app.get('/rcsa/master/:unitId', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Gagal ambil data master RCSA' });
-
   }
 });
 
@@ -266,23 +270,28 @@ app.get('/rcsa/master/:unitId', async (req, res) => {
 
 // Ambil semua master RCSA (opsional: filter unit pakai query)
 app.get("/master-rcsa", async (req, res) => {
+  const { unit_id } = req.query;
+
   try {
-    const [rows] = await db.query(`
+    let query = `
       SELECT 
         m.id,
         m.rcsa_name,
         m.description,
         u.unit_name,
-
-        u.unit_type AS tipe,   -- alias supaya sinkron dengan frontend
-        u.parent_id
-
         u.unit_type
-
       FROM rcsa_master m
       LEFT JOIN rcsa_master_units mu ON m.id = mu.rcsa_master_id
       LEFT JOIN units u ON mu.unit_id = u.id
-    `);
+    `;
+    const params = [];
+
+    if (unit_id) {
+      query += " WHERE mu.unit_id = ?";
+      params.push(unit_id);
+    }
+
+    const [rows] = await db.query(query, params);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -290,25 +299,6 @@ app.get("/master-rcsa", async (req, res) => {
   }
 });
 
-
-app.post('/master-rcsa', async (req, res) => {
-  const { rcsa_name, description, unit_id  } = req.body;
-  const created_by = req.headers["authorization-user"];
-  if (!created_by) return res.status(400).json({ message: "User ID tidak ditemukan di header" });
-
-  try {
-    const [result] = await db.execute(
-      'INSERT INTO rcsa_master (rcsa_name, description, created_by) VALUES (?, ?, ?)',
-      [rcsa_name, description, created_by]
-    );
-    await db.execute(
-      'INSERT INTO rcsa_master_units (rcsa_master_id, unit_id) VALUES (?, ?)',
-      [result.insertId, unit_id]
-    );
-    res.json({ id: result.insertId, rcsa_name, description, unit_id, created_by });
-  } catch (err) {
-    console.error("createMasterRCSA error:", err);
-=======
 // Tmambah Data Master RCSA
 app.post("/master-rcsa", async (req, res) => {
   const { rcsa_name, description, unit_id } = req.body;
@@ -345,49 +335,37 @@ app.post("/master-rcsa", async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Error tambah master RCSA:", err);
-
     res.status(500).json({ message: "Gagal tambah master RCSA" });
   }
 });
 
-
-app.put('/master-rcsa/:id', async (req, res) => {
+// Update master RCSA
+app.put("/rcsa/master/:id", async (req, res) => {
   const { id } = req.params;
   const { rcsa_name, description, unit_id } = req.body;
+
   try {
+    // Update hanya nama & deskripsi
     await db.execute(
-      'UPDATE rcsa_master SET rcsa_name=?, description=? WHERE id=?',
-      [rcsa_name, description, id]
+      "UPDATE rcsa_master SET rcsa_name=?, description=? WHERE id=?",
+      [rcsa_name, description || null, id]
     );
-    if (unit_id) {
+
+    // 🔹 Update unit hanya kalau unit_id valid
+    if (unit_id && !isNaN(unit_id)) {
       await db.execute(
-        'UPDATE rcsa_master_units SET unit_id=? WHERE rcsa_master_id=?',
+        "UPDATE rcsa_master_units SET unit_id=? WHERE rcsa_master_id=?",
         [unit_id, id]
       );
     }
-    res.json({ id, rcsa_name, description, unit_id });
+
+    res.json({ message: "Master RCSA updated successfully" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Gagal update master RCSA' });
-
+    console.error("Error updating RCSA Master:", err);
+    res.status(500).json({ error: "Gagal update Master RCSA" });
   }
 });
 
-app.delete('/master-rcsa/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    await db.execute('DELETE FROM rcsa_master_units WHERE rcsa_master_id=?', [id]);
-    await db.execute('DELETE FROM rcsa_master WHERE id=?', [id]);
-    res.json({ message: 'Master RCSA berhasil dihapus' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Gagal hapus master RCSA' });
-  }
-});
-
-=======
-  }
-});
 
 // Hapus master RCSA
 app.delete('/master-rcsa/:id', async (req, res) => {
@@ -402,39 +380,96 @@ app.delete('/master-rcsa/:id', async (req, res) => {
   }
 });
 
-
 // ======== RCSA ASSESSMENT =============
 
-// Ambil draft assessment by user & unit
-app.get('/rcsa/assessment', async (req, res) => {
-  const { created_by, unit_id } = req.query;
-
+// Ambil semua assessment submitted (filter by user/unit/status)
+app.get("/rcsa/assessment", async (req, res) => {
   try {
-    let query = `
-      SELECT ra.*
+    const { created_by, unit_id } = req.query;
+
+    let sql = `
+      SELECT 
+        ra.*, 
+        u.unit_name, u.unit_type,
+        rm.rcsa_name, rm.description AS rcsa_description
       FROM rcsa_assessment ra
-      JOIN rcsa_master_units rmu ON ra.rcsa_master_id = rmu.rcsa_master_id
-      WHERE 1=1
+      JOIN rcsa_master rm ON rm.id = ra.rcsa_master_id
+      JOIN units u ON u.id = ra.unit_id
+      WHERE ra.status = 'submitted'
     `;
     const params = [];
 
     if (created_by) {
-      query += ` AND ra.created_by = ?`;
+      sql += " AND ra.created_by = ?";
       params.push(created_by);
     }
     if (unit_id) {
-      query += ` AND ra.unit_id = ? AND rmu.unit_id = ?`;
-      params.push(unit_id, unit_id);
+      sql += " AND ra.unit_id = ?";
+      params.push(unit_id);
     }
 
-    // default hanya ambil draft
-    query += ` AND ra.status = 'draft'`;
+    sql += " ORDER BY ra.id ASC";
 
-    const [rows] = await db.execute(query, params);
+    // gunakan db.execute bukan pool
+    const [rows] = await db.execute(sql, params);
     res.json(rows);
   } catch (err) {
-    console.error("❌ Error ambil draft:", err);
-    res.status(500).json({ message: 'Gagal ambil draft RCSA' });
+    console.error("GET /rcsa/assessment error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+// Ambil assessment draft
+app.get("/rcsa/assessment/drafts", async (req, res) => {
+  try {
+    const { created_by, unit_id, exclude_submitted } = req.query;
+
+    let sql = `
+      SELECT 
+          rmu.rcsa_master_id,
+          rm.rcsa_name,
+          rm.description,
+          rmu.unit_id,
+          ra.id AS assessment_id,
+          ra.status,
+          ra.potensi_risiko,
+          ra.penyebab_risiko,
+          ra.dampak_inheren,
+          ra.frekuensi_inheren,
+          ra.nilai_inheren,
+          ra.level_inheren,
+          ra.pengendalian,
+          ra.dampak_residual,
+          ra.kemungkinan_residual,
+          ra.nilai_residual,
+          ra.level_residual,
+          ra.penilaian_kontrol,
+          ra.action_plan,
+          ra.pic
+      FROM rcsa_master_units rmu
+      JOIN rcsa_master rm ON rm.id = rmu.rcsa_master_id
+      LEFT JOIN rcsa_assessment ra 
+        ON ra.rcsa_master_id = rmu.rcsa_master_id 
+       AND ra.unit_id = rmu.unit_id
+       AND ra.created_by = ?
+      WHERE rmu.unit_id = ?
+    `;
+
+    const params = [created_by, unit_id];
+
+    if (exclude_submitted === "true") {
+      sql += ` AND (ra.status IS NULL OR ra.status = 'draft') `;
+    }
+
+    sql += ` ORDER BY rmu.rcsa_master_id ASC`;
+
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching RCSA drafts" });
   }
 });
 
@@ -443,30 +478,163 @@ app.get('/rcsa/assessment', async (req, res) => {
 app.get('/rcsa/assessment/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await db.execute(
-      `SELECT * FROM rcsa_assessment WHERE id = ?`,
-      [id]
-    );
+    const [rows] = await db.execute(`
+      SELECT 
+        ra.*,
+        rm.id AS master_id, rm.rcsa_name, rm.description AS master_desc,
+        u.id AS unit_id, u.unit_name, u.unit_type,
+        usr.id AS user_id, usr.name AS user_name, usr.email AS user_email
+      FROM rcsa_assessment ra
+      JOIN rcsa_master rm ON ra.rcsa_master_id = rm.id
+      JOIN units u ON ra.unit_id = u.id
+      JOIN users usr ON ra.created_by = usr.id
+      WHERE ra.id = ?
+    `, [id]);
 
     if (rows.length === 0) {
       return res.status(404).json({ message: "Assessment tidak ditemukan" });
     }
 
-    res.json(rows[0]);
+    const r = rows[0];
+    const [notes] = await db.execute(`
+      SELECT rn.id, rn.note, rn.created_at, u.id AS reviewer_id, u.name AS reviewer_name
+      FROM rcsa_review_notes rn
+      JOIN users u ON rn.reviewer_id = u.id
+      WHERE rn.assessment_id = ?
+    `, [id]);
+
+    const formatted = {
+      id: r.id,
+      status: r.status,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      rcsa_master: {
+        id: r.master_id,
+        rcsa_name: r.rcsa_name,
+        description: r.master_desc
+      },
+      unit: {
+        id: r.unit_id,
+        unit_name: r.unit_name,
+        unit_type: r.unit_type
+      },
+      created_by: {
+        id: r.user_id,
+        name: r.user_name,
+        email: r.user_email
+      },
+      assessment: {
+        jenis_risiko: r.jenis_risiko,
+        risk_description: r.risk_description,
+        penyebab_risiko: r.penyebab_risiko,
+        dampak_inheren: r.dampak_inheren,
+        frekuensi_inheren: r.frekuensi_inheren,
+        nilai_inheren: r.nilai_inheren,
+        level_inheren: r.level_inheren,
+        pengendalian: r.pengendalian,
+        dampak_residual: r.dampak_residual,
+        kemungkinan_residual: r.kemungkinan_residual,
+        nilai_residual: r.nilai_residual,
+        level_residual: r.level_residual,
+        penilaian_kontrol: r.penilaian_kontrol,
+        action_plan: r.action_plan,
+        pic: r.pic
+      },
+      review_notes: notes.map(n => ({
+        id: n.id,
+        note: n.note,
+        created_at: n.created_at,
+        reviewer: {
+          id: n.reviewer_id,
+          name: n.reviewer_name
+        }
+      }))
+    };
+
+    res.json({ success: true, data: formatted });
   } catch (err) {
-    console.error("❌ Error ambil detail:", err);
+    console.error("❌ Error ambil detail assessment:", err);
     res.status(500).json({ message: 'Gagal ambil detail assessment' });
   }
 });
 
+// Update assessment draft
+app.put('/rcsa/assessment/:id', async (req, res) => {
+  const { id } = req.params;
+  let data = req.body;
+
+  Object.keys(data).forEach(k => {
+    if (data[k] === undefined) data[k] = null;
+  });
+
+  try {
+    console.log("Update payload:", data);
+
+    await db.execute(`
+      UPDATE rcsa_assessment SET
+        rcsa_master_id = ?, unit_id = ?, created_by = ?,
+        potensi_risiko = ?, jenis_risiko = ?, penyebab_risiko = ?,
+        dampak_inheren = ?, frekuensi_inheren = ?, pengendalian = ?,
+        dampak_residual = ?, kemungkinan_residual = ?, penilaian_kontrol = ?,
+        action_plan = ?, pic = ?, status = ?
+      WHERE id = ?`, [
+      data.rcsa_master_id ?? null,
+      data.unit_id ?? null,
+      data.created_by ?? null,
+      data.potensi_risiko ?? null,
+      data.jenis_risiko ?? null,
+      data.penyebab_risiko ?? null,
+      data.dampak_inheren ?? null,
+      data.frekuensi_inheren ?? null,
+      data.pengendalian ?? null,
+      data.dampak_residual ?? null,
+      data.kemungkinan_residual ?? null,
+      data.penilaian_kontrol ?? null,
+      data.action_plan ?? null,
+      data.pic ?? null,
+      data.status ?? 'draft',
+      id
+    ]);
+
+    res.json({ ...data, id });
+  } catch (err) {
+    console.error("❌ Error update assessment:", err);
+    res.status(500).json({ message: 'Gagal update assessment' });
+  }
+});
+
+
 app.post('/rcsa/assessment', async (req, res) => {
   const data = req.body;
   try {
+    // cek apakah sudah ada assessment untuk kombinasi ini
+    const [existing] = await db.execute(`
+      SELECT id, status FROM rcsa_assessment
+      WHERE rcsa_master_id = ? AND unit_id = ? AND created_by = ?
+      ORDER BY id DESC LIMIT 1
+    `, [data.rcsa_master_id, data.unit_id, data.created_by]);
+
+    if (existing.length > 0) {
+      const current = existing[0];
+
+      if (current.status === 'submitted') {
+        return res.status(400).json({
+          success: false,
+          message: 'Assessment sudah submitted, tidak bisa membuat draft baru.'
+        });
+      }
+      return res.json({
+        ...data,
+        id: current.id,
+        status: current.status
+      });
+    }
+
+    // kalau belum ada, insert baru
     const [result] = await db.execute(`
-      INSERT INTO rcsa_assessment 
-      (
+      INSERT INTO rcsa_assessment (
         rcsa_master_id, unit_id, created_by,
-        jenis_risiko, risk_description, penyebab_risiko,
+        jenis_risiko, potensi_risiko, penyebab_risiko,
         dampak_inheren, frekuensi_inheren, nilai_inheren, level_inheren,
         pengendalian,
         dampak_residual, kemungkinan_residual, nilai_residual, level_residual,
@@ -475,33 +643,35 @@ app.post('/rcsa/assessment', async (req, res) => {
       ) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      data.rcsa_master_id,
-      data.unit_id,
-      data.created_by,
-      data.jenis_risiko || null,
-      data.risk_description || null,
-      data.penyebab_risiko || null,
-      data.dampak_inheren || null,
-      data.frekuensi_inheren || null,
-      data.nilai_inheren || null,
-      data.level_inheren || null,
-      data.pengendalian || null,
-      data.dampak_residual || null,
-      data.kemungkinan_residual || null,
-      data.nilai_residual || null,
-      data.level_residual || null,
-      data.penilaian_kontrol || null,
-      data.action_plan || null,
-      data.pic || null,
-      data.status || 'draft'
+      data.rcsa_master_id ?? null,
+      data.unit_id ?? null,
+      data.created_by ?? null,
+      data.jenis_risiko ?? null,
+      data.potensi_risiko ?? null,
+      data.penyebab_risiko ?? null,
+      data.dampak_inheren ?? null,
+      data.frekuensi_inheren ?? null,
+      data.nilai_inheren ?? null,
+      data.level_inheren ?? null,
+      data.pengendalian ?? null,
+      data.dampak_residual ?? null,
+      data.kemungkinan_residual ?? null,
+      data.nilai_residual ?? null,
+      data.level_residual ?? null,
+      data.penilaian_kontrol ?? null,
+      data.action_plan ?? null,
+      data.pic ?? null,
+      data.status ?? 'draft'
     ]);
 
-    res.json({ id: result.insertId, ...data });
+    res.json({ ...data, id: result.insertId, status: data.status ?? 'draft' });
   } catch (err) {
     console.error("❌ Error insert assessment:", err);
     res.status(500).json({ message: 'Gagal simpan assessment' });
   }
 });
+
+
 
 //submit Assessment
 app.put('/rcsa/assessment/:id/submit', async (req, res) => {
@@ -534,7 +704,6 @@ app.post('/rcsa/review/:assessmentId', async (req, res) => {
     res.status(500).json({ message: 'Gagal simpan review' });
   }
 });
-
 
 
 

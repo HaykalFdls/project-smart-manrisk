@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { getAllRcsaSubmissions, type RCSASubmission, type RCSAData } from '@/lib/rcsa-data';
+import { getRcsaSubmitted, type RCSAData } from '@/lib/rcsa-data';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+
 
 const getLevelFromBesaran = (besaran: number | null | undefined) => {
   if (besaran === null || besaran === undefined) return { label: '-', variant: 'secondary' as const };
@@ -30,20 +31,15 @@ const DetailRow = ({ label, value }: { label: string, value: React.ReactNode }) 
 );
 
 const RiskReportDetail = ({ data }: { data: RCSAData }) => {
-  const besaranInheren = (data.dampakInheren && data.frekuensiInheren)
-    ? data.dampakInheren * data.frekuensiInheren
-    : null;
+  const besaranInheren = (data.dampakInheren && data.frekuensiInheren) ? data.dampakInheren * data.frekuensiInheren : null;
   const levelInheren = getLevelFromBesaran(besaranInheren);
-
-  const besaranResidual = (data.dampakResidual && data.kemungkinanResidual)
-    ? data.dampakResidual * data.kemungkinanResidual
-    : null;
+  const besaranResidual = (data.dampakResidual && data.kemungkinanResidual) ? data.dampakResidual * data.kemungkinanResidual : null;
   const levelResidual = getLevelFromBesaran(besaranResidual);
 
   return (
     <Card className="mb-4">
       <CardHeader>
-        <CardTitle className="text-lg">Risiko #{data.no}: {data.potensiRisiko}</CardTitle>
+        <CardTitle className="text-lg">Potensi Risiko {data.no} : {data.potensiRisiko}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         <DetailRow label="Jenis Risiko" value={data.jenisRisiko} />
@@ -71,16 +67,14 @@ const RiskReportDetail = ({ data }: { data: RCSAData }) => {
           <>
             <Separator />
             <h4 className="font-semibold pt-2">Keterangan dari User</h4>
-            <div className="text-sm text-muted-foreground pt-1 whitespace-pre-wrap">
-              {data.keteranganUser}
-            </div>
+            <div className="text-sm text-muted-foreground pt-1 whitespace-pre-wrap">{data.keteranganUser}</div>
           </>
         )}
       </CardContent>
       {data.keteranganAdmin && (
         <CardFooter>
           <p className="text-xs text-muted-foreground">
-            <strong>Keterangan dari Admin:</strong>{' '}
+            <strong>Keterangan dari Admin:</strong>{" "}
             {data.keteranganAdmin.split('\n').filter(line => !line.startsWith('Target:')).join('\n')}
           </p>
         </CardFooter>
@@ -89,23 +83,17 @@ const RiskReportDetail = ({ data }: { data: RCSAData }) => {
   );
 };
 
+
 export default function RcsaReportPage() {
-  const [submissions, setSubmissions] = useState<RCSASubmission[]>([]);
+  const [submissions, setSubmissions] = useState<RCSAData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const data = await getAllRcsaSubmissions(); // tunggu hasil async
-      const sorted = (data ?? []).sort(
-        (a, b) =>
-          new Date(b.submittedAt).getTime() -
-          new Date(a.submittedAt).getTime()
-      );
-      setSubmissions(sorted);
-    } catch (err) {
-      console.error("Gagal memuat submissions:", err);
-      setSubmissions([]);
+      const result = await getRcsaSubmitted();
+      console.log("DEBUG submitted:", result);
+      setSubmissions(result);
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +111,7 @@ export default function RcsaReportPage() {
     <div className="flex flex-1 flex-col p-4 md:p-6 lg:p-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Laporan RCSA Terkirim</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Laporan RCSA</h1>
           <p className="text-muted-foreground">
             Tinjau semua data RCSA yang telah dikirim oleh unit operasional.
           </p>
@@ -151,20 +139,18 @@ export default function RcsaReportPage() {
                   <div className="flex justify-between items-center w-full">
                     <div className="flex flex-col text-left">
                       <span className="font-semibold">Laporan #{submission.id}</span>
-                      {submission.division && (
-                        <span className="text-sm font-normal">{submission.division}</span>
+                      {submission.unit_name && (
+                        <span className="text-sm font-normal">{submission.unit_name}</span>
                       )}
                     </div>
                     <span className="text-sm text-muted-foreground">
-                      Dikirim pada: {new Date(submission.submittedAt).toLocaleString('id-ID')}
+                      Status: {submission.status}
                     </span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-6 pt-0">
                   <Separator className="mb-4" />
-                  {submission.data.map(item => (
-                    <RiskReportDetail key={item.no} data={item} />
-                  ))}
+                  <RiskReportDetail data={submission} />
                 </AccordionContent>
               </AccordionItem>
             ))}
