@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { getRcsaSubmitted, type RCSAData } from '@/lib/rcsa-data';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, CheckCircle2, FileSpreadsheet } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-
+import * as XLSX from 'xlsx';
 
 const getLevelFromBesaran = (besaran: number | null | undefined) => {
   if (besaran === null || besaran === undefined) return { label: '-', variant: 'secondary' as const };
@@ -23,23 +23,48 @@ const getLevelFromBesaran = (besaran: number | null | undefined) => {
   return { label: 'Rendah', variant: 'outline' as const };
 };
 
-const DetailRow = ({ label, value }: { label: string, value: React.ReactNode }) => (
+const DetailRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div className="grid grid-cols-2 justify-between py-2">
     <div className="text-sm text-muted-foreground">{label}</div>
     <div className="text-sm font-medium text-right">{value || '-'}</div>
   </div>
 );
 
-const RiskReportDetail = ({ data }: { data: RCSAData }) => {
-  const besaranInheren = (data.dampakInheren && data.frekuensiInheren) ? data.dampakInheren * data.frekuensiInheren : null;
+const RiskReportDetail = ({
+  data,
+  onApprove,
+}: {
+  data: RCSAData & { approved?: boolean };
+  onApprove: (id: number | undefined) => void;
+}) => {
+  const besaranInheren =
+    data.dampakInheren && data.frekuensiInheren
+      ? data.dampakInheren * data.frekuensiInheren
+      : null;
   const levelInheren = getLevelFromBesaran(besaranInheren);
-  const besaranResidual = (data.dampakResidual && data.kemungkinanResidual) ? data.dampakResidual * data.kemungkinanResidual : null;
+  const besaranResidual =
+    data.dampakResidual && data.kemungkinanResidual
+      ? data.dampakResidual * data.kemungkinanResidual
+      : null;
   const levelResidual = getLevelFromBesaran(besaranResidual);
 
   return (
     <Card className="mb-4">
       <CardHeader>
-        <CardTitle className="text-lg">Potensi Risiko {data.no} : {data.potensiRisiko}</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">
+            Potensi Risiko {data.no} : {data.potensiRisiko}
+          </CardTitle>
+          {data.approved ? (
+            <Badge variant="outline" className="flex items-center gap-1 text-green-600 border-green-600">
+              <CheckCircle2 className="h-4 w-4" /> Approved
+            </Badge>
+          ) : (
+            <Button size="sm" onClick={() => onApprove(data.id)}>
+              Approve
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         <DetailRow label="Jenis Risiko" value={data.jenisRisiko} />
@@ -83,20 +108,54 @@ const RiskReportDetail = ({ data }: { data: RCSAData }) => {
   );
 };
 
-
 export default function RcsaReportPage() {
-  const [submissions, setSubmissions] = useState<RCSAData[]>([]);
+  const [submissions, setSubmissions] = useState<(RCSAData & { approved?: boolean })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
       const result = await getRcsaSubmitted();
-      console.log("DEBUG submitted:", result);
-      setSubmissions(result);
+      const withApproval = result.map((r) => ({ ...r, approved: false }));
+      setSubmissions(withApproval);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleApprove = (id: number | undefined) => {
+    if (!id) return;
+    setSubmissions((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, approved: true } : s))
+    );
+  };
+
+  const downloadExcel = () => {
+    const approvedReports = submissions.filter((s) => s.approved);
+    if (approvedReports.length === 0) {
+      alert("Belum ada laporan yang di-approve.");
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(approvedReports.map((r) => ({
+      ID: r.id,
+      Unit: r.unit_name,
+      PotensiRisiko: r.potensiRisiko,
+      JenisRisiko: r.jenisRisiko,
+      PenyebabRisiko: r.penyebabRisiko,
+      DampakInheren: r.dampakInheren,
+      FrekuensiInheren: r.frekuensiInheren,
+      DampakResidual: r.dampakResidual,
+      KemungkinanResidual: r.kemungkinanResidual,
+      ActionPlan: r.actionPlan,
+      PIC: r.pic,
+      KeteranganUser: r.keteranganUser,
+      KeteranganAdmin: r.keteranganAdmin,
+    })));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Approved RCSA");
+    XLSX.writeFile(workbook, "approved_rcsa.xlsx");
   };
 
   useEffect(() => {
@@ -116,10 +175,16 @@ export default function RcsaReportPage() {
             Tinjau semua data RCSA yang telah dikirim oleh unit operasional.
           </p>
         </div>
-        <Button onClick={loadData} variant="outline">
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Muat Ulang Data
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={downloadExcel} variant="default">
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Download Excel
+          </Button>
+          <Button onClick={loadData} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Muat Ulang Data
+          </Button>
+        </div>
       </div>
 
       <div>
@@ -150,7 +215,7 @@ export default function RcsaReportPage() {
                 </AccordionTrigger>
                 <AccordionContent className="px-6 pt-0">
                   <Separator className="mb-4" />
-                  <RiskReportDetail data={submission} />
+                  <RiskReportDetail data={submission} onApprove={handleApprove} />
                 </AccordionContent>
               </AccordionItem>
             ))}
