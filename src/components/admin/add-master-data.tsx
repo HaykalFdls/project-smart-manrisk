@@ -85,12 +85,10 @@ export function AddMasterDataModal({
 const handleSave = async () => {
   let unitId = 0;
 
-  if (targetType === "pusat") {
-    const selected = pusatUnits.find((u) => u.unit_name === division);
-    unitId = selected?.id ?? 0;
-  } else if (targetType === "cabang") {
-    const selected = cabangUnits.find((u) => u.unit_name === branchType);
-    unitId = selected?.id ?? 0;
+  if (targetType === "pusat" && division) {
+    unitId = Number(division);
+  } else if (targetType === "cabang" && branchType) {
+    unitId = Number(branchType);
   }
 
   if (!user) {
@@ -187,13 +185,15 @@ const handleSave = async () => {
             </div>
 
             {targetType === 'pusat' && (
-              <Select onValueChange={setDivision} value={division}>
+              <Select
+                onValueChange={(value) => setDivision(value)}
+                value={division}>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih divisi..." />
                 </SelectTrigger>
                 <SelectContent>
                   {pusatUnits.map((u) => (
-                    <SelectItem key={u.id} value={u.unit_name}>
+                    <SelectItem key={u.id} value={String(u.id)}>
                       {u.unit_name}
                     </SelectItem>
                   ))}
@@ -204,20 +204,22 @@ const handleSave = async () => {
             {targetType === 'cabang' && (
               <div className="space-y-2">
                 <Label>Jenis Kantor Cabang</Label>
-                <Select onValueChange={setBranchType} value={branchType}>
+                <Select
+                  onValueChange={(value) => setBranchType(value)}
+                  value={branchType}>
                   <SelectTrigger>
                     <SelectValue placeholder="Pilih cabang..." />
                   </SelectTrigger>
                   <SelectContent>
                     {cabangUnits.map((u) => (
-                      <SelectItem key={u.id} value={u.unit_name}>
+                      <SelectItem key={u.id} value={String(u.id)}>
                         {u.unit_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
+            )}  
           </div>
 
           {/* Step 2: Isi Detail Risiko */}

@@ -12,7 +12,7 @@ import { AddMasterDataModal } from "@/components/admin/add-master-data";
 import { type RCSAData } from '@/lib/rcsa-data';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-// Helper pisahkan target dari description
+
 const parseTargetAndDescription = (description: string | null) => {
   if (!description) return { target: null, cleanDescription: null };
   const lines = description.split('\n');
@@ -31,8 +31,6 @@ export default function RcsaManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // 🔴 state untuk notifikasi tab
   const [newUnits, setNewUnits] = useState<string[]>([]);
 
   useEffect(() => {
@@ -115,29 +113,35 @@ export default function RcsaManagementPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={(newData) => {
-        const safeUnitName = newData.unit_name ?? "Unit Tidak Diketahui";
-
-        setData((prev) => [
-          ...prev,
-          {
-            no: prev.length + 1,
-            potensiRisiko: newData.potensiRisiko,
-            keteranganAdmin: newData.keteranganAdmin || "",
-            id: newData.id,
-            unit_id: newData.unit_id,
-            unit_name: safeUnitName,
-          } as RCSAData,
-        ]);
-      
-        setNewUnits((prev) => {
-          if (!prev.includes(safeUnitName)) {
-            return [...prev, safeUnitName];
-          }
-          return prev;
-        });
-      
-        toast({ title: "Sukses", description: `Data baru ditambahkan ke unit ${safeUnitName}` });
-      }}
+          const safeUnitName = newData.unit_name ?? "Unit Tidak Diketahui";
+        
+          setData((prev) => [
+            {
+              no: 1,
+              potensiRisiko: newData.potensiRisiko,
+              keteranganAdmin: newData.keteranganAdmin || "",
+              id: newData.id,
+              unit_id: newData.unit_id,
+              unit_name: safeUnitName,
+            } as RCSAData,
+            ...prev.map((item, idx) => ({
+              ...item,
+              no: idx + 2, // geser ke bawah
+            })),
+          ]);
+        
+          setNewUnits((prev) => {
+            if (!prev.includes(safeUnitName)) {
+              return [...prev, safeUnitName];
+            }
+            return prev;
+          });
+        
+          toast({
+            title: "Sukses",
+            description: `Data baru ditambahkan ke unit ${safeUnitName}`,
+          });
+        }}
       />
 
       <div className="flex flex-1 flex-col p-4 md:p-6 lg:p-8">
@@ -194,8 +198,8 @@ export default function RcsaManagementPage() {
                       <CardHeader>
                         <div className="flex justify-between items-start">
                           <div>
-                            <CardTitle>Master Risiko #{row.no}</CardTitle>
-                            <p className="text-sm text-muted-foreground">Unit: {row.unit_name}</p>
+                            <CardTitle>Data Master Risiko</CardTitle>
+                            <p className="pt-2 text-sm text-muted-foreground">Unit: {row.unit_name}</p>
                           </div>
                           {target && (
                             <Badge variant="secondary" className="flex items-center gap-2">

@@ -1,4 +1,4 @@
-'use client';
+'use client'; 
 
 import React, { useState, useMemo, useEffect, useCallback, memo } from 'react';
 import {
@@ -9,10 +9,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import {
-  getRcsaDraft, saveRcsaAssessment, submitRcsaAssessment,
+import { submitRcsaAssessment,
   type RCSAData,
 } from '@/lib/rcsa-data';
+import { getRcsaDraft, mapToAssessment, saveRcsaAssessment } from "@/lib/rcsa-data";
 import { useToast } from '@/hooks/use-toast';
 import { Save, Send, Info } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,6 +25,8 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from "@/context/auth-context";
+import { toCamelCase, toSnakeCase  } from "@/lib/utils";
+
 
 // Pilihan jenis risiko
 const jenisRisikoOptions = [
@@ -93,12 +95,14 @@ const RiskCard = memo(({ row, index, onChange }: RiskCardProps) => {
   return (
     <Card key={row.id ?? index}>
       <CardHeader>
-        <div className="flex justify-between items-start">
-          <CardTitle>Potensi Risiko #{row.no}</CardTitle>
+        <div className="flex items-baseline w-full gap-2">
+          <CardTitle className="text-lg font-large text-foreground">
+            Potensi Risiko:
+          </CardTitle>
+          <CardDescription className="text-base text-foreground leading-snug">
+            {row.potensiRisiko}
+          </CardDescription>
         </div>
-        <CardDescription className="pt-2 text-base text-foreground">
-          {row.potensiRisiko}
-        </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-6">
@@ -196,22 +200,6 @@ const RiskCard = memo(({ row, index, onChange }: RiskCardProps) => {
           </div>
 
           <Separator />
-
-          <div>
-            <Label>Penilaian Tingkat Efektivitas Kontrol</Label>
-            <Select
-              value={row.penilaianKontrol || ''}
-              onValueChange={(value) => onChange(index, 'penilaianKontrol', value)}
-            >
-              <SelectTrigger><SelectValue placeholder="Pilih..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Efektif">Efektif</SelectItem>
-                <SelectItem value="Cukup Efektif">Cukup Efektif</SelectItem>
-                <SelectItem value="Tidak Efektif">Tidak Efektif</SelectItem>
-                <SelectItem value="#N/A">N/A</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         {/* Action Plan & PIC */}
@@ -266,21 +254,37 @@ export default function Rcsapage() {
   const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
 
+  const [unitInfo, setUnitInfo] = useState<{ name: string; type: string } | null>(null);
+
   // Ambil draft dari backend
   useEffect(() => {
-    if (!user || !user.id || !user.unit_id) return;
-    const fetchDraft = async () => {
+    const loadDraft = async () => {
+      if (!user) return;
+      setIsLoading(true);
       try {
-        const draft = await getRcsaDraft(user.id!, user.unit_id!);
-        setData(draft);
-      } catch (error) {
-        console.error("Gagal load draft RCSA:", error);
+        const draft = await getRcsaDraft(user.id, user.unit_id!);
+        console.log("Draft dari backend:", draft);
+
+        const mapped = toCamelCase(draft);
+        console.log("Draft mapped:", mapped);
+
+        setData(mapped);
+        const res = await fetch(`http://localhost:5000/units/${user.unit_id}`);
+          if (res.ok) {
+            const u = await res.json();
+            setUnitInfo({ name: u.unit_name, type: u.unit_type });
+          }
+      } catch (err) {
+        console.error("Gagal ambil draft:", err);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchDraft();
+    loadDraft();
   }, [user]);
+
+  const unitName = unitInfo?.name || null;
+  const unitType = unitInfo?.type || null;
 
   // Hitung besaran inheren & residual
   const calculatedData = useMemo(() => {
@@ -314,15 +318,25 @@ export default function Rcsapage() {
 
   // Simpan draf
   const handleSave = async () => {
-    if (!user) return;
+  if (!user) return;
     setIsSaving(true);
     try {
+      const updatedRows = [];
       for (const row of data) {
-        await saveRcsaAssessment(row, user.id!, user.unit_id!);
+        const payload = mapToAssessment(row, user.id!, user.unit_id!);
+        console.log("Payload ke backend (after mapping):", payload);
+        const saved = await saveRcsaAssessment(payload);
+        console.log("Response backend:", saved);
+
+        updatedRows.push({ ...row, ...saved });
       }
+
+      // Update state supaya id tidak lagi undefined
+      setData(updatedRows);
+
       toast({ title: "Draf berhasil disimpan" });
     } catch (err) {
-      console.error(err);
+      console.error("Gagal simpan draf:", err);
       toast({ title: "Gagal simpan draf" });
     } finally {
       setIsSaving(false);
@@ -334,24 +348,30 @@ export default function Rcsapage() {
     try {
       for (const row of data) {
         if (row.id) {
+          console.log("Submit row id:", row.id);
           await submitRcsaAssessment(row.id);
+        } else {
+          console.warn("Row belum punya id, lewati:", row);
         }
       }
+
       toast({
-        title: 'Data Terkirim!',
-        description: 'Data RCSA Anda telah berhasil dikirim untuk ditinjau oleh admin.',
-        variant: 'default',
+        title: "Data Terkirim!",
+        description: "Data RCSA Anda telah berhasil dikirim untuk ditinjau oleh admin.",
+        variant: "default",
       });
-      setData([]);
+
+      setData([]); // kosongkan tabel setelah submit
     } catch (err) {
-      console.error('Gagal kirim submission RCSA:', err);
+      console.error("Gagal kirim submission RCSA:", err);
       toast({
-        title: 'Gagal!',
-        description: 'Terjadi kesalahan saat mengirim data ke admin.',
-        variant: 'destructive',
+        title: "Gagal!",
+        description: "Terjadi kesalahan saat mengirim data ke admin.",
+        variant: "destructive",
       });
     }
   };
+
 
   if (isLoading) return <div className="p-8">Memuat data...</div>;
 
@@ -393,7 +413,17 @@ export default function Rcsapage() {
       {/* Info Target */}
       <Alert className="mb-6">
         <Info className="h-4 w-4" />
-        <AlertTitle>Untuk Unit Kerja Anda: {pageTarget || 'Tidak Ada'}</AlertTitle>
+        <AlertTitle>
+          {isLoading ? (
+            "Memuat Unit Kerja..."
+          ) : unitName ? (
+            <>
+              Unit Kerja : {unitName}
+            </>
+          ) : (
+            "Tidak Ada Unit"
+          )}
+        </AlertTitle>
         <AlertDescription>
           Daftar potensi risiko di bawah ini telah disiapkan oleh admin untuk diisi oleh unit kerja Anda.
         </AlertDescription>
