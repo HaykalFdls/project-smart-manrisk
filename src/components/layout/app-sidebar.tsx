@@ -13,11 +13,7 @@ import {
   SidebarMenuSubItem,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   LayoutDashboard,
   GitMerge,
@@ -113,7 +109,7 @@ const adminNavItems: MenuItem[] = [
     icon: Shield,
     title: "Admin Risk Register",
     submenu: [
-      { name: "Kelola Risk Register", href: "/admin/riskregister-management" },
+      { name: "Kelola Risk Register", href: "/admin/risk-management" },
       { name: "Laporan Risk Register", href: "" },
     ],
   },
@@ -228,10 +224,7 @@ export function AppSidebar() {
         <div className="flex h-full flex-col">
           {/* Logo + SMART */}
           <SidebarHeader className="p-4">
-            <Link
-              href="/"
-              className="flex flex-col items-center gap-2 text-sidebar-foreground"
-            >
+            <Link href="/" className="flex flex-col items-center gap-2 text-sidebar-foreground">
               <img
                 src="/images/logo_png.png"
                 alt="SMART Logo"
