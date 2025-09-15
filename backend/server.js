@@ -672,7 +672,6 @@ app.post('/rcsa/assessment', async (req, res) => {
 });
 
 
-
 //submit Assessment
 app.put('/rcsa/assessment/:id/submit', async (req, res) => {
   const { id } = req.params;
