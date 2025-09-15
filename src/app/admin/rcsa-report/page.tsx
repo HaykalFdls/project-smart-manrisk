@@ -131,10 +131,8 @@ export default function RcsaReportPage() {
           <Accordion type="single" collapsible className="w-full space-y-4">
             {submissions.map((submission, index) => (
               <AccordionItem
-                value={`item-${index}`}
-                key={submission.id}
-                className="border rounded-lg bg-card"
-              >
+                value={`item-${index}`} key={submission.id}
+                className="border rounded-lg bg-card">
                 <AccordionTrigger className="px-6 py-4 hover:no-underline">
                   <div className="flex justify-between items-center w-full">
                     <div className="flex flex-col text-left">

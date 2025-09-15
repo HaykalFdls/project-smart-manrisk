@@ -1,5 +1,6 @@
-'use client';
-import { useState, useEffect } from 'react';
+"use client";
+
+import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -11,12 +12,12 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarFooter,
-} from '@/components/ui/sidebar';
+} from "@/components/ui/sidebar";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+} from "@/components/ui/collapsible";
 import {
   LayoutDashboard,
   GitMerge,
@@ -28,14 +29,17 @@ import {
   FileText,
   Gavel,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Settings,
   LogOut,
   Shield,
   type LucideIcon,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+} from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import {
   Dialog,
@@ -59,107 +63,63 @@ type MenuItem = {
 };
 
 const mainNavItems: MenuItem[] = [
-  { icon: LayoutDashboard, title: 'Dashboard', href: '/dashboard' },
+  { icon: LayoutDashboard, title: "Dashboard", href: "/dashboard" },
   {
     icon: GitMerge,
-    title: 'Risk Integration',
+    title: "Risk Integration",
     submenu: [
-      { name: 'Dashboard & Report', href: '#' },
-      { name: 'Tingkat Kesehatan Bank (TKB)', href: '#' },
-      { name: 'Profil Risiko Bankwide', href: '#' },
-      { name: 'ICAAP', href: '#' },
-      { name: 'RAS', href: '#' },
-      { name: 'Risk Register', href: '/risk-register' },
-      { name: 'KRI', href: '#' },
-      { name: 'EWS', href: '#' },
-      { name: 'Profil Risiko Cabang', href: '#' },
-      { name: 'RMI', href: '#' },
-      { name: 'ICoFR', href: '#' },
-      { name: 'KMR', href: '#' },
+      { name: "Dashboard & Report", href: "#" },
+      { name: "Tingkat Kesehatan Bank (TKB)", href: "#" },
+      { name: "Profil Risiko Bankwide", href: "#" },
+      { name: "ICAAP", href: "#" },
+      { name: "RAS", href: "#" },
+      { name: "Risk Register", href: "/risk-register" },
+      { name: "KRI", href: "#" },
+      { name: "EWS", href: "#" },
+      { name: "Profil Risiko Cabang", href: "#" },
+      { name: "RMI", href: "#" },
+      { name: "ICoFR", href: "#" },
+      { name: "KMR", href: "#" },
     ],
   },
-  // {
-  //   icon: Landmark,
-  //   title: 'Credit & Investment Risk',
-  //   submenu: [
-  //     { name: 'Dashboard & Report', href: '#' },
-  //     { name: 'Root Cause of Credit Risk (RCCR)', href: '#' },
-  //     { name: 'Portofolio Guideline', href: '#' },
-  //     { name: 'Financing at Risk (FAR)', href: '#' },
-  //     { name: 'First Payment Default (FPD)', href: '#' },
-  //     { name: 'Risk Profile & Risk Limit', href: '#' },
-  //     { name: 'Vintage Analysis', href: '#' },
-  //     { name: 'Stress Test Kredit & Permodalan', href: '#' },
-  //     { name: 'ATMR Risiko Kredit', href: '#' },
-  //   ],
-  // },
-  // {
-  //   icon: Waves,
-  //   title: 'Liquidity & Market Risk',
-  //   submenu: [
-  //     { name: 'Dashboard & Report', href: '#' },
-  //     { name: 'LCR', href: '#' },
-  //     { name: 'Risk Profile & Risk Limit', href: '#' },
-  //     { name: 'NSFR', href: '#' },
-  //     { name: 'Stress Test Likuiditas dan Pasar', href: '#' },
-  //     { name: 'ATMR Risiko Pasar', href: '#' },
-  //     { name: 'IRRBB', href: '#' },
-  //   ],
-  // },
+  // (komentar lainnya tetap seperti semula)
   {
     icon: ShieldAlert,
-    title: 'Operational Risk',
+    title: "Operational Risk",
     submenu: [
-      { name: 'Dashboard & Report', href: '#' },
-      { name: 'Risk Control Self-Assessment (RCSA)', href: '/rcsa' },
-      { name: 'Loss Event Database (LED)', href: '#' },
-      { name: 'ATMR Risiko Operasional', href: '#' },
-      { name: 'Risk Profile & Risk Limit', href: '#' },
-      { name: 'Risk Self-Assessment (RSA)', href: '#' },
-      { name: 'Stress Test Operasional', href: '#' },
+      { name: "Dashboard & Report", href: "#" },
+      { name: "Risk Control Self-Assessment (RCSA)", href: "/rcsa" },
+      { name: "Loss Event Database (LED)", href: "#" },
+      { name: "ATMR Risiko Operasional", href: "#" },
+      { name: "Risk Profile & Risk Limit", href: "#" },
+      { name: "Risk Self-Assessment (RSA)", href: "#" },
+      { name: "Stress Test Operasional", href: "#" },
     ],
   },
-  // {
-  //   icon: ServerCog,
-  //   title: 'IT Risk Management',
-  //   submenu: [
-  //     { name: 'Dashboard & Report', href: '#' },
-  //     { name: 'Profil Risiko Ketahanan & Keamanan Siber', href: '#' },
-  //     { name: 'Tingkat Maturitas Digital Bank', href: '#' },
-  //     { name: 'CSIRT', href: '#' },
-  //     { name: 'Risk Profile & Risk Limit', href: '#' },
-  //   ],
-  // },
-  // {
-  //   icon: ShieldCheck,
-  //   title: 'BCMS',
-  //   submenu: [
-  //     { name: 'Dashboard & report', href: '#' },
-  //     { name: 'Business Impact Analysis', href: '#' },
-  //     { name: 'Risk & Threat Assessment', href: '#' },
-  //     { name: 'Business Continuity Plan (BCP)', href: '#' },
-  //     { name: 'Disaster Recovery Plan (DRP)', href: '#' },
-  //     { name: 'Recovery & Resolution Plan', href: '#' },
-  //   ],
-  // },
-  { icon: FileText, title: 'Regulation Update', href: '#' },
-  { icon: Gavel, title: 'Governance & Compliance', href: '#' },
+  { icon: FileText, title: "Regulation Update", href: "#" },
+  { icon: Gavel, title: "Governance & Compliance", href: "#" },
 ];
 
 const adminNavItems: MenuItem[] = [
   {
     icon: Shield,
-    title: 'Admin',
+    title: "Admin RCSA",
     submenu: [
-      { name: 'Kelola Master RCSA', href: '/admin/rcsa-management' },
-      { name: 'Laporan RCSA', href: '/admin/rcsa-report' },
+      { name: "Kelola Master RCSA", href: "/admin/rcsa-management" },
+      { name: "Laporan RCSA", href: "/admin/rcsa-report" },
+    ],
+  },
+  {
+    icon: Shield,
+    title: "Admin Risk Register",
+    submenu: [
+      { name: "Kelola Risk Register", href: "/admin/riskregister-management" },
+      { name: "Laporan Risk Register", href: "" },
     ],
   },
 ];
 
-const footerNavItems: MenuItem[] = [
-  { icon: Settings, title: 'Settings', href: '#' },
-];
+const footerNavItems: MenuItem[] = [{ icon: Settings, title: "Settings", href: "#" }];
 
 const NavItemWithSubmenu = ({
   icon: Icon,
@@ -172,7 +132,7 @@ const NavItemWithSubmenu = ({
 }) => {
   const pathname = usePathname();
   const isAnySubmenuActive = submenu.some(
-    (item) => pathname.startsWith(item.href) && item.href !== '#'
+    (item) => pathname.startsWith(item.href) && item.href !== "#"
   );
   const [isOpen, setIsOpen] = useState(isAnySubmenuActive);
   const [isClient, setIsClient] = useState(false);
@@ -189,10 +149,7 @@ const NavItemWithSubmenu = ({
 
   if (!isClient) {
     return (
-      <SidebarMenuButton
-        className="justify-between w-full"
-        isActive={isAnySubmenuActive}
-      >
+      <SidebarMenuButton className="justify-between w-full" isActive={isAnySubmenuActive}>
         <div className="flex items-center gap-2">
           <Icon />
           <span>{title}</span>
@@ -205,22 +162,17 @@ const NavItemWithSubmenu = ({
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger asChild>
-        <SidebarMenuButton
-          className="justify-between w-full"
-          isActive={isAnySubmenuActive}
-        >
+        <SidebarMenuButton className="justify-between w-full" isActive={isAnySubmenuActive}>
           <div className="flex items-center gap-2">
             <Icon />
             <span>{title}</span>
           </div>
           <ChevronDown
-            className={cn(
-              'h-4 w-4 transition-transform duration-200',
-              isOpen && 'rotate-180'
-            )}
+            className={cn("h-4 w-4 transition-transform duration-200", isOpen && "rotate-180")}
           />
         </SidebarMenuButton>
       </CollapsibleTrigger>
+
       <CollapsibleContent>
         <SidebarMenuSub>
           {submenu.map((item) => (
@@ -249,7 +201,7 @@ const NavItem = ({ item }: { item: MenuItem }) => {
 
   return (
     <SidebarMenuButton asChild isActive={isActive}>
-      <Link href={href || '#'}>
+      <Link href={href || "#"}>
         <Icon />
         <span>{title}</span>
       </Link>
@@ -261,6 +213,9 @@ export function AppSidebar() {
   const { logout } = useAuth();
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // <-- PERBAIKAN: definisi collapsed & setter
+  const [collapsed, setCollapsed] = useState(false);
+
   const handleLogout = () => {
     logout();
     setShowConfirm(false);
@@ -268,25 +223,25 @@ export function AppSidebar() {
 
   return (
     <>
+      {/* keep collapsible prop as original - do not change menu logic */}
       <Sidebar collapsible="icon">
         <div className="flex h-full flex-col">
+          {/* Logo + SMART */}
           <SidebarHeader className="p-4">
             <Link
               href="/"
               className="flex flex-col items-center gap-2 text-sidebar-foreground"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 256 256"
-                className="h-10 w-auto"
-                fill="currentColor"
-              >
-                <path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88a88.1 88.1 0 0 1-88 88Z" />
-                <path d="M172.42 72.83a8 8 0 0 0-10.84 2.83l-56 96a8 8 0 0 0 13.68 8l56-96a8 8 0 0 0-2.84-10.83Z" />
-              </svg>
-              <span className="text-xl font-semibold">SMART</span>
+              <img
+                src="/images/logo_png.png"
+                alt="SMART Logo"
+                className={cn("transition-all", collapsed ? "h-10 w-10" : "h-12 w-auto")}
+              />
+              {!collapsed && <span className="text-xl font-semibold">SMART</span>}
             </Link>
           </SidebarHeader>
+
+          {/* Menu (tetap pakai menu + submenu asli kamu) */}
           <SidebarContent>
             <SidebarMenu>
               {mainNavItems.map((item) => (
@@ -294,9 +249,11 @@ export function AppSidebar() {
                   <NavItem item={item} />
                 </SidebarMenuItem>
               ))}
+
               <SidebarMenuItem>
                 <hr className="my-2 border-sidebar-border" />
               </SidebarMenuItem>
+
               {adminNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <NavItem item={item} />
@@ -304,6 +261,8 @@ export function AppSidebar() {
               ))}
             </SidebarMenu>
           </SidebarContent>
+
+          {/* Footer + tombol logout + collapse */}
           <SidebarFooter>
             <SidebarMenu>
               {footerNavItems.map((item) => (
@@ -311,6 +270,7 @@ export function AppSidebar() {
                   <NavItem item={item} />
                 </SidebarMenuItem>
               ))}
+
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setShowConfirm(true)}
@@ -320,12 +280,22 @@ export function AppSidebar() {
                   <span>Logout</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setCollapsed(!collapsed)}
+                  className="flex items-center gap-2"
+                >
+                  {collapsed ? <ChevronRight /> : <ChevronLeft />}
+                  {!collapsed && <span>Collapse</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarFooter>
         </div>
       </Sidebar>
 
-      {/* Modal Konfirmasi */}
+      {/* Modal Konfirmasi Logout */}
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
         <DialogContent>
           <DialogHeader>
