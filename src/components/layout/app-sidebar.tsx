@@ -45,6 +45,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
 type SubMenuItem = {
   name: string;
@@ -226,7 +227,7 @@ export function AppSidebar() {
           <SidebarHeader className="p-4">
             <Link href="/" className="flex flex-col items-center gap-2 text-sidebar-foreground">
               <img
-                src="/images/logo_png.png"
+                src="/images/logo_bjbs.png"
                 alt="SMART Logo"
                 className={cn("transition-all", collapsed ? "h-10 w-10" : "h-12 w-auto")}
               />
@@ -243,9 +244,16 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              <SidebarMenuItem>
-                <hr className="my-2 border-sidebar-border" />
-              </SidebarMenuItem>
+              <div className="p-2 pt-4">
+                <motion.h4
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: collapsed ? 0 : 1, scale: collapsed ? 0.8 : 1 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-xs font-semibold text-gray-400 uppercase tracking-widest pl-2"
+                >
+                  Admin Tools
+                </motion.h4>
+              </div>
 
               {adminNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
@@ -273,16 +281,6 @@ export function AppSidebar() {
                   <span>Logout</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-
-              {/* <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => setCollapsed(!collapsed)}
-                  className="flex items-center gap-2"
-                >
-                  {collapsed ? <ChevronRight /> : <ChevronLeft />}
-                  {!collapsed && <span>Collapse</span>}
-                </SidebarMenuButton>
-              </SidebarMenuItem> */}
             </SidebarMenu>
           </SidebarFooter>
         </div>

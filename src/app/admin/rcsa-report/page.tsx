@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import * as XLSX from 'xlsx';
+// import * as XLSX from 'xlsx';
 
 const getLevelFromBesaran = (besaran: number | null | undefined) => {
   if (besaran === null || besaran === undefined) return { label: '-', variant: 'secondary' as const };
