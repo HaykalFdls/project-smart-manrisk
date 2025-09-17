@@ -111,7 +111,7 @@ app.get('/risks', async (req, res) => {
       SELECT r.*,
         rs.role_name AS jabatan,
         u.unit_id,
-        un.unit_name AS divisi,   
+        un.unit_name AS unit_kerja,   
         u.name AS pemilik_nama 
       FROM risks r
       LEFT JOIN users u ON r.pemilik_risiko = u.id
@@ -131,7 +131,6 @@ app.get('/risks', async (req, res) => {
 app.post('/risks', async (req, res) => {
   const data = req.body;
   console.log('Incoming data:', req.body); 
-  // ubah undefined menjadi null
   const values = [
     data.kategori_risiko, data.jenis_risiko, data.skenario_risiko, data.root_cause, data.dampak, 
     data.dampak_keuangan, data.tingkat_dampak_keuangan, data.dampak_operasional, data.tingkat_dampak_operasional, 
@@ -266,8 +265,7 @@ app.get('/rcsa/master/:unitId', async (req, res) => {
   }
 });
 
-// ======== CRUD MASTER RCSA =============
-
+// ----------- CRUD MASTER RCSA ------------
 // Ambil semua master RCSA (opsional: filter unit pakai query)
 app.get("/master-rcsa", async (req, res) => {
   const { unit_id } = req.query;

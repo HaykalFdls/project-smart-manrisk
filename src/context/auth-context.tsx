@@ -29,18 +29,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Load session dari localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem("smart_user");
-    console.log("🔹 useEffect restore user raw:", storedUser); // ✅ log isi mentah localStorage
+    console.log("🔹 useEffect restore user raw:", storedUser);
     if (storedUser && storedUser !== "undefined" && storedUser !== "null") {
       try {
         const parsed = JSON.parse(storedUser);
-        console.log("Parsed user dari localStorage:", parsed); // ✅ log hasil parse
+        console.log("Parsed user dari localStorage:", parsed);
         setUser(parsed);
       } catch (err) {
-        console.error("❌ Gagal parse user dari localStorage:", err);
+        console.error("Gagal parse user dari localStorage:", err);
         localStorage.removeItem("smart_user");
       }
     } else {
-      console.log("⚠️ Tidak ada user di localStorage");
+      console.log("Tidak ada user di localStorage");
     }
     setIsReady(true);
   }, []);
