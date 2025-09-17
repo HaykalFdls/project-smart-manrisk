@@ -27,6 +27,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
 import type { RiskData } from '@/app/risk-register/page';
+import { useAuth } from "@/context/auth-context";
+
 
 const formSchema = z.object({
   kategori: z.string().min(1, 'Kategori risiko harus diisi.'),
@@ -72,6 +74,8 @@ export function AddRiskForm({
   existingData?: RiskData | null;
 }) {
   const { toast } = useToast();
+  const { user } = useAuth();
+
   const form = useForm<AddRiskFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -91,7 +95,7 @@ export function AddRiskForm({
       tingkatKemungkinan: 'Jarang',
       risikoResidual: 'Rendah',
       batasKriteria: 'Rendah',
-      riskOwner: `Kantor Pusat - Divisi ${division}`,
+      riskOwner: user ? `${user.name} (Unit ${user.unit_id ?? "N/A"})` : "",
       processOwner: '',
       productOwner: '',
       treatmentPlan: '',

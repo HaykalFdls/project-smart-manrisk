@@ -2,5 +2,5 @@
 export interface User {
   id: number;
   name: string;
-  division: string;
+  unit_kerja: string;
 }
