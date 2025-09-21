@@ -113,7 +113,7 @@ export default function RcsaManagementPage() {
         onSave={(newData) => {
           setData((prev) => [
             {
-              no: 1, // selalu muncul di atas
+              no: 1,
               potensiRisiko: newData.potensiRisiko,
               keteranganAdmin: newData.keteranganAdmin || "",
               id: newData.id,
@@ -122,7 +122,7 @@ export default function RcsaManagementPage() {
             },
             ...prev.map((r, idx) => ({
               ...r,
-              no: idx + 2, // geser nomor ke bawah
+              no: idx + 2,
             })),
           ]);
           toast({ title: "Sukses", description: `Data baru ditambahkan.` });
@@ -150,7 +150,7 @@ export default function RcsaManagementPage() {
 
         {/* Dropdown pilih unit */}
         <div className="mb-6 w-72">
-          <Label>Pilih Unit</Label>
+          <Label>Unit</Label>
           <Select onValueChange={setSelectedUnit} value={selectedUnit}>
             <SelectTrigger>
               <SelectValue placeholder="Pilih unit/divisi..." />
@@ -172,17 +172,17 @@ export default function RcsaManagementPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="p-3 text-left">#</th>
-                    <th className="p-3 text-left">Potensi Risiko</th>
-                    <th className="p-3 text-left">Keterangan</th>
-                    <th className="p-3 text-right">Aksi</th>
+                    <th className="p-3 text-center">NO</th>
+                    <th className="p-3 text-center">Potensi Risiko</th>
+                    <th className="p-3 text-center">Keterangan</th>
+                    <th className="p-3 text-center">Aksi</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="text-center">
                   {filteredData.map((row, idx) => (
                     <tr key={row.id} className="border-t">
-                      <td className="p-3">{idx + 1}</td>
-                      <td className="p-3">
+                      <td className="p-1">{idx + 1}</td>
+                      <td className="p-6">
                         <Textarea
                           value={row.potensiRisiko}
                           onChange={(e) =>
@@ -210,7 +210,7 @@ export default function RcsaManagementPage() {
                           }
                         />
                       </td>
-                      <td className="p-3 text-right">
+                      <td>
                         <Button
                           variant="destructive"
                           size="sm"

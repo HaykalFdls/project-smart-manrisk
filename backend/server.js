@@ -2,10 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql2/promise';
 import bcrypt from 'bcrypt';
+import jwt from "jsonwebtoken";
+
+import { authenticateToken } from './middleware/auth.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const JWT_SECRET = "your_secret_key"; // nanti taro di .env
 
 const db = await mysql.createConnection({
   host: 'localhost',
@@ -16,30 +21,35 @@ const db = await mysql.createConnection({
 
 // ======== USERS =============
 
-// Ambil semua user
-app.get('/users', async (req, res) => {
+// Ambil semua user + role + permissions
+app.get('/users', authenticateToken, async (req, res) => {
   const [rows] = await db.execute(`
-    SELECT u.id, u.name, u.email, u.unit_id, u.status, r.role_name
+    SELECT 
+      u.id, u.user_id, u.name, u.email, u.unit_id, u.status, 
+      r.role_name,
+      rp.can_create, rp.can_read, rp.can_view, rp.can_update, 
+      rp.can_approve, rp.can_delete, rp.can_provision
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
+    LEFT JOIN role_permissions rp ON r.id = rp.role_id
   `);
   res.json(rows);
 });
 
 // Tambah user
 app.post('/users', async (req, res) => {
-  const { name, email, password, unit_id, role_id, status } = req.body;
+  const { user_id, name, email, password, unit_id, role_id, status } = req.body;
   console.log("Req Body: ", req.body);
-  if (!name || !email || !password || !role_id) {
-    return res.status(400).json({ message: 'Name, email, password, and roleId are required' });
+  if (!user_id || !name || !email || !password || !role_id) {
+    return res.status(400).json({ message: 'user_id, Name, email, password, and roleId are required' });
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
   await db.execute(
-    `INSERT INTO users (name, email, password, unit_id, role_id, status)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [name, email, hashedPassword, unit_id || null, role_id, status || 'active']
+    `INSERT INTO users (user_id, name, email, password, unit_id, role_id, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [user_id, name, email, hashedPassword, unit_id || null, role_id, status || 'active']
   );
 
   res.json({ message: 'User berhasil ditambahkan' });
@@ -47,11 +57,19 @@ app.post('/users', async (req, res) => {
 
 // ======== ROLES =============
 
-// Ambil semua roles
+// Ambil semua roles + permissions
 app.get('/roles', async (req, res) => {
-  const [rows] = await db.execute('SELECT * FROM roles');
+  const [rows] = await db.execute(`
+    SELECT 
+      r.id, r.role_name, r.description,
+      rp.can_create, rp.can_read, rp.can_view, rp.can_update,
+      rp.can_approve, rp.can_delete, rp.can_provision
+    FROM roles r
+    LEFT JOIN role_permissions rp ON r.id = rp.role_id
+  `);
   res.json(rows);
 });
+
 
 // ======== ROLE PERMISSIONS =============
 
@@ -65,43 +83,87 @@ app.get('/roles/:roleId/permissions', async (req, res) => {
   res.json(rows[0] || {});
 });
 
+// Ambil permissions khusus satu role
+app.get('/roles/:roleId/permissions', async (req, res) => {
+  const { roleId } = req.params;
+  const [rows] = await db.execute(
+    `SELECT 
+        rp.can_create, rp.can_read, rp.can_view, rp.can_update,
+        rp.can_approve, rp.can_delete, rp.can_provision
+    FROM role_permissions rp
+    WHERE rp.role_id = ?`,
+    [roleId]
+  );
+  res.json(rows[0] || {});
+});
 
-// ======== LOGIN =============
+// ======== LOGIN (include permissions) =========
 app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  const { user_id, password } = req.body;
 
   try {
-    // Cari user berdasarkan email
     const [rows] = await db.execute(
-      "SELECT * FROM users WHERE email = ?",
-      [email]
+      `SELECT u.*, r.role_name
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       WHERE u.user_id = ?`,
+      [user_id]
     );
 
     if (rows.length === 0) {
-      return res.status(401).json({ message: "Email tidak ditemukan" });
+      return res.status(401).json({ message: "ID User tidak ditemukan" });
     }
 
     const user = rows[0];
 
-    // Cek password dengan bcrypt
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Password salah" });
     }
 
-    // Kalau berhasil login
+    // Ambil permissions berdasarkan role
+    const [permRows] = await db.execute(
+      `SELECT can_create, can_read, can_view, can_update, can_approve, can_delete, can_provision
+       FROM role_permissions WHERE role_id = ?`,
+      [user.role_id]
+    );
+
+    const permissions = permRows[0] || {};
+
+    const token = jwt.sign(
+      { id: user.id, role_id: user.role_id },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
     res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role_id: user.role_id,
-      unit_id: user.unit_id,
-      status: user.status,
+      token,
+      user: {
+        id: user.id,
+        user_id: user.user_id,
+        name: user.name,
+        email: user.email,
+        role_id: user.role_id,
+        role_name: user.role_name,
+        unit_id: user.unit_id,
+        status: user.status,
+        permissions
+      }
     });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Server error" });
   }
+});
+
+// ======== PROTECTED PROFILE =========
+app.get("/profile", authenticateToken, async (req, res) => {
+  const [rows] = await db.execute(
+    "SELECT id, user_id, name, email, role_id, unit_id, status FROM users WHERE id = ?",
+    [req.user.id]
+  );
+  if (rows.length === 0) return res.status(404).json({ message: "User tidak ditemukan" });
+  res.json(rows[0]);
 });
 
 // ======== RISKS =============
