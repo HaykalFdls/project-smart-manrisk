@@ -8,6 +8,7 @@ import * as z from "zod";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { fetchUsers, fetchRisks, createRisk, updateRisk, deleteRisk } from "@/lib/risk-register";
+import { useAuth } from "@/context/auth-context";
 import {Risk} from "@/types/risk";
 import {User} from "@/types/user";
 
@@ -96,14 +97,12 @@ const riskSchema = z.object({
   keterangan: z.string().optional(),
 });
 
-
 export default function RiskRegisterPage() {
+  const { fetchWithAuth } = useAuth();
   const [risks, setRisks] = useState<Risk[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
-  
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [viewingRisk, setViewingRisk] = useState<Risk | null>(null);
@@ -116,8 +115,8 @@ useEffect(() => {
   const loadData = async () => {
     try {
       const [risksData, usersData] = await Promise.all([
-        fetchRisks(),
-        fetchUsers()
+        fetchRisks(fetchWithAuth),
+        fetchUsers(fetchWithAuth)
       ]);
       // console.log("Users:", usersData);
       // console.log("Risks:", risksData);
@@ -130,7 +129,7 @@ useEffect(() => {
     }
   };
   loadData();
-}, []);
+}, [fetchWithAuth]);
 
 type RiskFormValues = z.infer<typeof riskSchema>;
 
@@ -216,7 +215,7 @@ const handleEditRisk = (risk: Risk) => {
   const confirmDelete = async () => {
     if (deletingRisk) {
       try {
-        await deleteRisk(deletingRisk.id);
+        await deleteRisk(fetchWithAuth, deletingRisk.id);
         setRisks(risks.filter(r => r.id !== deletingRisk.id));
         toast({ title: "Risk Deleted", description: "The risk has been successfully deleted.", variant: "destructive" });
       } catch (err) {
@@ -227,9 +226,10 @@ const handleEditRisk = (risk: Risk) => {
     }
   };
 
+
   
   const handleViewDetails = (risk: Risk) => {
-    console.log("Risk data untuk modal:", risk); // cek di console
+    console.log("Risk data untuk modal:", risk);
     setViewingRisk(risk);
   };
 
@@ -237,67 +237,22 @@ const handleEditRisk = (risk: Risk) => {
     try {
       if (editingRisk) {
         const payload = {
-          kategori_risiko: values.kategori_risiko,
-          jenis_risiko: values.jenis_risiko,
-          skenario_risiko: values.skenario_risiko,
-          root_cause: values.root_cause,
-          dampak: values.dampak,
-        
-          dampak_keuangan: values.dampak_keuangan,
-          tingkat_dampak_keuangan: values.tingkat_dampak_keuangan,
-          dampak_operasional: values.dampak_operasional,
-          tingkat_dampak_operasional: values.tingkat_dampak_operasional,
-          dampak_reputasi: values.dampak_reputasi,
-          tingkat_dampak_reputasi: values.tingkat_dampak_reputasi,
-          dampak_regulasi: values.dampak_regulasi,
-          tingkat_dampak_regulasi: values.tingkat_dampak_regulasi,
-        
-          skor_kemungkinan: values.skor_kemungkinan,
-          tingkat_kemungkinan: values.tingkat_kemungkinan,
-          nilai_risiko: values.nilai_risiko,
-          tingkat_risiko: values.tingkat_risiko,
-        
-          rencana_penanganan: values.rencana_penanganan,
-          deskripsi_rencana_penanganan: values.deskripsi_rencana_penanganan,
-          risiko_residual: values.risiko_residual,
-          kriteria_penerimaan_risiko: values.kriteria_penerimaan_risiko,
+          ...values,
           pemilik_risiko: parseInt(values.pemilik_risiko),
-          keterangan: values.keterangan,
           unit_kerja: selectedDivision,
         };
-      
-        const updated = await updateRisk(editingRisk.id, payload);
+
+        const updated = await updateRisk(fetchWithAuth, editingRisk.id, payload);
         setRisks(risks.map(r => r.id === editingRisk.id ? updated : r));
         toast({ title: "Risk Updated", description: "The risk has been successfully updated." });
-      } else { 
-        // Add new risk
-        const newRisk = await createRisk({
-          kategori_risiko: values.kategori_risiko,
-          jenis_risiko: values.jenis_risiko,
-          skenario_risiko: values.skenario_risiko,
-          root_cause: values.root_cause,
-          dampak: values.dampak,
-          dampak_keuangan: values.dampak_keuangan,
-          tingkat_dampak_keuangan: values.tingkat_dampak_keuangan,
-          dampak_operasional: values.dampak_operasional,
-          tingkat_dampak_operasional: values.tingkat_dampak_operasional,
-          dampak_reputasi: values.dampak_reputasi,
-          tingkat_dampak_reputasi: values.tingkat_dampak_reputasi,
-          dampak_regulasi: values.dampak_regulasi,
-          tingkat_dampak_regulasi: values.tingkat_dampak_regulasi,
-          skor_kemungkinan: values.skor_kemungkinan,
-          tingkat_kemungkinan: values.tingkat_kemungkinan,
-          nilai_risiko: values.nilai_risiko,
-          tingkat_risiko: values.tingkat_risiko,
-          rencana_penanganan: values.rencana_penanganan,
-          deskripsi_rencana_penanganan: values.deskripsi_rencana_penanganan,
-          risiko_residual: values.risiko_residual,
-          kriteria_penerimaan_risiko: values.kriteria_penerimaan_risiko,
+      } else {
+        const payload = {
+          ...values,
           pemilik_risiko: parseInt(values.pemilik_risiko),
-          keterangan: values.keterangan,
-          divisi: selectedDivision,
-        });
+          unit_kerja: selectedDivision,
+        };
 
+        const newRisk = await createRisk(fetchWithAuth, payload);
         setRisks([...risks, newRisk]);
         toast({ title: "Risk Added", description: "The new risk has been successfully added." });
       }
@@ -309,6 +264,7 @@ const handleEditRisk = (risk: Risk) => {
       toast({ title: "Error", description: String(err), variant: "destructive" });
     }
   }
+
 
 // console.log("userNameMap:", userNameMap);
 // console.log("userDivisionMap:", userDivisionMap);
