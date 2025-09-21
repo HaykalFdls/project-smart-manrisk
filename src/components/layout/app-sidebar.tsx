@@ -116,7 +116,7 @@ const adminNavItems: MenuItem[] = [
   },
 ];
 
-const footerNavItems: MenuItem[] = [{ icon: Settings, title: "Settings", href: "#" }];
+const footerNavItems: MenuItem[] = [{ icon: Settings, title: "Settings", href: "/setting" }];
 
 const NavItemWithSubmenu = ({
   icon: Icon,
@@ -207,10 +207,8 @@ const NavItem = ({ item }: { item: MenuItem }) => {
 };
 
 export function AppSidebar() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [showConfirm, setShowConfirm] = useState(false);
-
-  // <-- PERBAIKAN: definisi collapsed & setter
   const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = () => {
@@ -220,22 +218,16 @@ export function AppSidebar() {
 
   return (
     <>
-      {/* keep collapsible prop as original - do not change menu logic */}
       <Sidebar collapsible="icon">
         <div className="flex h-full flex-col">
-          {/* Logo + SMART */}
           <SidebarHeader className="p-4">
             <Link href="/" className="flex flex-col items-center gap-2 text-sidebar-foreground">
               <img
-                src="/images/logo_bjbs.png"
-                alt="SMART Logo"
-                className={cn("transition-all", collapsed ? "h-10 w-10" : "h-12 w-auto")}
-              />
+                src="/images/logo_bjbs.png" alt="SMART Logo"
+                className={cn("transition-all", collapsed ? "h-10 w-10" : "h-12 w-auto")}/>
               {!collapsed && <span className="text-xl font-semibold">SMART</span>}
             </Link>
           </SidebarHeader>
-
-          {/* Menu (tetap pakai menu + submenu asli kamu) */}
           <SidebarContent>
             <SidebarMenu>
               {mainNavItems.map((item) => (
@@ -244,26 +236,36 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              <div className="p-2 pt-4">
-                <motion.h4
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: collapsed ? 0 : 1, scale: collapsed ? 0.8 : 1 }}
-                  transition={{ duration: 0.2 }}
-                  className="text-xs font-semibold text-gray-400 uppercase tracking-widest pl-2"
-                >
-                  Admin Tools
-                </motion.h4>
-              </div>
+              {/* Admin Tools tampil jika role/permission sesuai */}
+              {user?.role_name === "Super User" ||
+              user?.permissions.can_provision ||
+              user?.permissions.can_update ? (
+                <>
+                  <div className="p-2 pt-4">
+                    <motion.h4
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{
+                        opacity: collapsed ? 0 : 1,
+                        scale: collapsed ? 0.8 : 1,
+                      }}
+                      transition={{ duration: 0.2 }}
+                      className="text-xs font-semibold text-gray-400 uppercase tracking-widest pl-2"
+                    >
+                      Admin Tools
+                    </motion.h4>
+                  </div>
 
-              {adminNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <NavItem item={item} />
-                </SidebarMenuItem>
-              ))}
+                  {adminNavItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <NavItem item={item} />
+                    </SidebarMenuItem>
+                  ))}
+                </>
+              ) : null}
             </SidebarMenu>
           </SidebarContent>
 
-          {/* Footer + tombol logout + collapse */}
+          {/* Footer + tombol logout */}
           <SidebarFooter>
             <SidebarMenu>
               {footerNavItems.map((item) => (

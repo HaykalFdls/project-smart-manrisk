@@ -1,27 +1,31 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Lock, ArrowRight } from "lucide-react";
+import { User, Lock, ArrowRight } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import Image from "next/image";
 
+
 export default function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState("");
+  const [user_id, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await login(email, password);
-      window.location.href = "/dashboard";
+      await login(user_id, password);
+      router.push("/dashboard");
     } catch {
-      setError("Email atau password salah");
+      setError("ID USER atau PASSWORD salah");
     } finally {
       setLoading(false);
     }
@@ -91,15 +95,15 @@ export default function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="relative">
-              <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-blue-400" size={20} /> {/* Icon warna biru */}
+              <User className="absolute left-5 top-1/2 -translate-y-1/2 text-blue-400" size={20} /> {/* Icon warna biru */}
               <input
-                type="email"
-                placeholder="Email"
+                type="text"
+                placeholder="User ID"
                 className="w-full rounded-full bg-blue-50 border border-blue-200 py-3.5 pl-14 pr-5 text-base text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm" // Warna input lebih cerah
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={user_id}
+                onChange={(e) => setUserId(e.target.value)}
                 required
-                autoComplete="email"
+                autoComplete="Username"
               />
             </div>
 
