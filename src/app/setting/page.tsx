@@ -1,79 +1,54 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Users, Shield, Crown, FileText } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
-
-type UserProfile = {
-  id: number;
-  name: string;
-  email: string;
-  role_id: number;
-  role_name: string;
-  unit_id: number | null;
-  status: string;
-};
+import { useRouter } from "next/navigation";
 
 export default function SettingPage() {
-  const { user, isReady, isAuthenticated, fetchWithAuth, logout } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { logout } = useAuth();
+  const router = useRouter();
 
-  useEffect(() => {
-    if (!isReady) return;
-
-    if (!isAuthenticated) {
-      // kalau belum login, jangan fetch
-      setLoading(false);
-      return;
-    }
-
-    const fetchProfile = async () => {
-      try {
-        const res = await fetchWithAuth("http://localhost:5000/profile");
-        if (!res.ok) throw new Error("Gagal ambil profile");
-
-        const data = await res.json();
-        setProfile(data);
-      } catch (err) {
-        console.error("❌ Error ambil profile:", err);
-        logout(); // auto logout kalau token invalid
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [isReady, isAuthenticated, fetchWithAuth, logout]);
-
-  if (!isReady) return <p className="p-4">⏳ Loading auth...</p>;
-  if (!isAuthenticated) return <p className="p-4">⚠️ Anda harus login dulu</p>;
-  if (loading) return <p className="p-4">⏳ Ambil data profile...</p>;
+  const menus = [
+    {
+      icon: <Users size={50} className="text-indigo-600" />,
+      label: "Users",
+      path: "/setting/user",
+    },
+    {
+      icon: <Shield size={50} className="text-indigo-600" />,
+      label: "Account",
+      path: "/setting/account",
+    },
+    {
+      icon: <Crown size={50} className="text-yellow-500" />,
+      label: "Plans & Billings",
+      path: "/setting/plans",
+    },
+    {
+      icon: <FileText size={50} className="text-indigo-600" />,
+      label: "Audit Log",
+      path: "/setting/audit",
+    },
+  ];
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold mb-4">⚙️ Settings</h1>
+    <div className="p-8 w-full min-h-screen bg-gray-50">
+      <h1 className="text-2xl font-bold mb-8 text-gray-800">Admin Management</h1>
 
-      {profile ? (
-        <div className="space-y-4">
-          <div className="bg-white shadow p-4 rounded-lg">
-            <p><strong>ID:</strong> {profile.id}</p>
-            <p><strong>Name:</strong> {profile.name}</p>
-            <p><strong>Email:</strong> {profile.email}</p>
-            <p><strong>Role:</strong> {profile.role_name} (ID {profile.role_id})</p>
-            <p><strong>Unit ID:</strong> {profile.unit_id ?? "-"}</p>
-            <p><strong>Status:</strong> {profile.status}</p>
-          </div>
-
-          <button
-            onClick={logout}
-            className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        {menus.map((menu, idx) => (
+          <div
+            key={idx}
+            onClick={() => router.push(menu.path)}
+            className="flex flex-col items-center justify-center bg-white border rounded-2xl shadow-md hover:shadow-lg cursor-pointer transition transform hover:-translate-y-1 p-10"
           >
-            Logout
-          </button>
-        </div>
-      ) : (
-        <p className="text-gray-500">Tidak ada data user.</p>
-      )}
+            {menu.icon}
+            <p className="mt-4 font-semibold text-gray-700 text-lg">
+              {menu.label}
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

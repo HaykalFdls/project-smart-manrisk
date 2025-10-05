@@ -1,16 +1,14 @@
 "use client";
 
+import React, { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import Spinner from "@/components/spinner";
 
-// Dummy credentials
-const DUMMY_EMAIL = "user@example.com";
-const DUMMY_PASSWORD = "password";
 const AUTH_STORAGE_KEY = "smart-login-token";
+const REFRESH_INTERVAL = 1000 * 60 * 50; // 50 menit sebelum expired (1 jam)
+
+export const AuthContext = React.createContext<any>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -18,46 +16,107 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
 
+  // ======== CEK TOKEN SAAT LOAD =========
   useEffect(() => {
-    // This effect runs only on the client after hydration
-    try {
-      const storedToken = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (storedToken) {
-        setIsAuthenticated(true);
-      }
-    } catch (error) {
-      console.error("Failed to access localStorage", error);
-    } finally {
-      setIsLoading(false);
+    const token = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (token) {
+      setIsAuthenticated(true);
+      scheduleTokenRefresh(token);
     }
+    setIsLoading(false);
   }, []);
 
-  const login = async (email: string, pass: string) => {
-    if (email === DUMMY_EMAIL && pass === DUMMY_PASSWORD) {
-      localStorage.setItem(AUTH_STORAGE_KEY, "dummy-token");
+  // ======== LOGIN =========
+  const login = async (user_id: string, password: string) => {
+    try {
+      const res = await fetch("http://localhost:5000/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      localStorage.setItem(AUTH_STORAGE_KEY, data.token);
       setIsAuthenticated(true);
+      scheduleTokenRefresh(data.token);
       router.push("/dashboard");
-    } else {
+    } catch (err: any) {
       toast({
         variant: "destructive",
-        title: "Login Failed",
-        description: "Invalid email or password.",
+        title: "Login Gagal",
+        description: err.message || "Terjadi kesalahan.",
       });
-      throw new Error("Invalid credentials");
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    setIsAuthenticated(false);
-    router.push("/");
+  // ======== LOGOUT =========
+  const logout = useCallback(async () => {
+    try {
+      const token = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (token) {
+        await fetch("http://localhost:5000/logout", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch (error) {
+      console.error("Logout gagal:", error);
+    } finally {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setIsAuthenticated(false);
+      router.push("/");
+    }
+  }, [router]);
+
+  // ======== AUTO REFRESH TOKEN =========
+  const scheduleTokenRefresh = (token: string) => {
+    setTimeout(async () => {
+      try {
+        const res = await fetch("http://localhost:5000/refresh-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+
+        const data = await res.json();
+        if (data.token) {
+          localStorage.setItem(AUTH_STORAGE_KEY, data.token);
+          toast({ title: "Session diperpanjang" });
+          scheduleTokenRefresh(data.token); // jadwalkan ulang
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Sesi kadaluarsa",
+            description: "Silakan login ulang.",
+          });
+          logout();
+        }
+      } catch (error) {
+        console.error("Gagal refresh token:", error);
+        logout();
+      }
+    }, REFRESH_INTERVAL);
   };
 
-  const value = { isAuthenticated, isLoading, login, logout };
+  // ======== AUTO LOGOUT WARNING =========
+  useEffect(() => {
+    const warningTimer = setTimeout(() => {
+      toast({
+        title: "Sesi akan berakhir sebentar lagi ⏳",
+        description: "Sesi Anda akan otomatis diperpanjang.",
+      });
+    }, REFRESH_INTERVAL - 5 * 60 * 1000); // 5 menit sebelum refresh
 
-  if (isLoading) {
-    return <Spinner />;
-  }
+    return () => clearTimeout(warningTimer);
+  }, [isAuthenticated]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  if (isLoading) return <Spinner />;
+
+  return (
+    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
