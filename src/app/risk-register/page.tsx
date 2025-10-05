@@ -265,7 +265,6 @@ const handleEditRisk = (risk: Risk) => {
     }
   }
 
-
 // console.log("userNameMap:", userNameMap);
 // console.log("userDivisionMap:", userDivisionMap);
 // console.log("Risks:", risks);

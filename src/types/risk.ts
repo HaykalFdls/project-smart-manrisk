@@ -1,4 +1,6 @@
-// src/types/risk.ts
+import { User } from "./user";
+
+
 export interface Risk {
   id: number;
   kategori_risiko: string;
@@ -29,3 +31,6 @@ export interface Risk {
   keterangan?: string;
   fraud_indicator?: boolean;
 }
+
+// 👇 type form (biasanya sama seperti Risk tapi tanpa id)
+export type RiskFormValues = Omit<Risk, "id"> & { id?: number };

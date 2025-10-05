@@ -3,14 +3,17 @@ import cors from 'cors';
 import mysql from 'mysql2/promise';
 import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
+import cookieParser from "cookie-parser";
 
 import { authenticateToken } from './middleware/auth.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
-const JWT_SECRET = "your_secret_key"; // nanti taro di .env
+const JWT_SECRET = "access_secret_key"; // nanti taro di .env
+const REFRESH_SECRET = "refresh_secret_key"; // nanti taro di .env
 
 const db = await mysql.createConnection({
   host: 'localhost',
@@ -39,9 +42,8 @@ app.get('/users', authenticateToken, async (req, res) => {
 // Tambah user
 app.post('/users', async (req, res) => {
   const { user_id, name, email, password, unit_id, role_id, status } = req.body;
-  console.log("Req Body: ", req.body);
   if (!user_id || !name || !email || !password || !role_id) {
-    return res.status(400).json({ message: 'user_id, Name, email, password, and roleId are required' });
+    return res.status(400).json({ message: 'Data tidak lengkap' });
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -97,47 +99,74 @@ app.get('/roles/:roleId/permissions', async (req, res) => {
   res.json(rows[0] || {});
 });
 
-// ======== LOGIN (include permissions) =========
+// ===========================================================
+// ===================== AUTH SECTION ========================
+// ===========================================================
+
+// === LOGIN ===
 app.post("/login", async (req, res) => {
   const { user_id, password } = req.body;
-
   try {
     const [rows] = await db.execute(
-      `SELECT u.*, r.role_name
+      `SELECT u.*, r.role_name, un.unit_name
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
+       LEFT JOIN units un ON u.unit_id = un.id
        WHERE u.user_id = ?`,
       [user_id]
     );
 
-    if (rows.length === 0) {
+    if (rows.length === 0)
       return res.status(401).json({ message: "ID User tidak ditemukan" });
-    }
 
     const user = rows[0];
-
     const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
+      await db.execute(
+        `INSERT INTO user_logins (user_id, ip_address, user_agent, success, role_name, unit_name)
+         VALUES (?, ?, ?, 0, ?, ?)`,
+        [user.id, req.ip, req.get("User-Agent"), user.role_name, user.unit_name]
+      );
       return res.status(401).json({ message: "Password salah" });
     }
 
-    // Ambil permissions berdasarkan role
+    // Ambil permissions
     const [permRows] = await db.execute(
       `SELECT can_create, can_read, can_view, can_update, can_approve, can_delete, can_provision
        FROM role_permissions WHERE role_id = ?`,
       [user.role_id]
     );
-
     const permissions = permRows[0] || {};
 
-    const token = jwt.sign(
+    // 🔐 Generate tokens
+    const accessToken = jwt.sign(
       { id: user.id, role_id: user.role_id },
-      JWT_SECRET,
+      ACCESS_SECRET,
       { expiresIn: "1h" }
+    );
+    const refreshToken = jwt.sign(
+      { id: user.id, role_id: user.role_id },
+      REFRESH_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Simpan refresh token di cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 hari
+    });
+
+    // Catat login sukses
+    await db.execute(
+      `INSERT INTO user_logins (user_id, ip_address, user_agent, success, role_name, unit_name)
+       VALUES (?, ?, ?, 1, ?, ?)`,
+      [user.id, req.ip, req.get("User-Agent"), user.role_name, user.unit_name]
     );
 
     res.json({
-      token,
+      token: accessToken,
       user: {
         id: user.id,
         user_id: user.user_id,
@@ -146,15 +175,88 @@ app.post("/login", async (req, res) => {
         role_id: user.role_id,
         role_name: user.role_name,
         unit_id: user.unit_id,
+        unit_name: user.unit_name,
         status: user.status,
-        permissions
-      }
+        permissions,
+      },
     });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
+// ======== REFRESH TOKEN =========
+app.post("/refresh-token", async (req, res) => {
+  const refreshToken = req.body.refreshToken;
+  if (!refreshToken) return res.status(401).json({ message: "Refresh token tidak ada" });
+
+  jwt.verify(refreshToken, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: "Refresh token tidak valid" });
+
+    const newToken = jwt.sign(
+      { id: user.id, role_id: user.role_id },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    console.log(`🔄 Token diperpanjang untuk user_id=${user.id} pada ${new Date().toLocaleString()}`);
+
+    res.json({ token: newToken });
+  });
+});
+
+
+
+// === LOGOUT ===
+app.post("/logout", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    await db.execute(
+      `UPDATE user_logins 
+       SET logout_time = NOW() 
+       WHERE user_id = ? AND logout_time IS NULL
+       ORDER BY login_time DESC LIMIT 1`,
+      [userId]
+    );
+
+    res.clearCookie("refreshToken");
+    res.json({ message: "Logout berhasil" });
+  } catch (err) {
+    console.error("Logout error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ======== USER LOGINS (riwayat login/logout) =========
+app.get("/user-logins", authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await db.execute(`
+      SELECT 
+        ul.id,
+        ul.user_id,
+        u.name AS user_name,
+        u.email,
+        ul.login_time,
+        ul.logout_time,
+        ul.ip_address,
+        ul.user_agent,
+        ul.role_name,
+        ul.unit_name,
+        u.status
+      FROM user_logins ul
+      JOIN users u ON ul.user_id = u.id
+      ORDER BY ul.login_time DESC
+    `);
+
+    res.json(rows);
+  } catch (err) {
+    console.error("Gagal mengambil data user_logins:", err);
+    res.status(500).json({ message: "Gagal mengambil data user_logins" });
+  }
+});
+
 
 // ======== PROTECTED PROFILE =========
 app.get("/profile", authenticateToken, async (req, res) => {
