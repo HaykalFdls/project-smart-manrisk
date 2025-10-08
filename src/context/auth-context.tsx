@@ -29,41 +29,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const router = useRouter();
 
-  // Helper: cek token expired
+  // 🔎 Cek apakah token sudah expired
   const isTokenExpired = (jwt: string): boolean => {
     try {
       const decoded = jwtDecode<JWTPayload>(jwt);
-      if (!decoded.exp) return true;
       return decoded.exp * 1000 < Date.now();
-    } catch (err) {
-      console.error("❌ Gagal decode token:", err);
+    } catch {
       return true;
     }
   };
 
-  // Helper: perpanjang token otomatis
+  // 🚪 Logout (hapus session & redirect)
+  const logout = useCallback(async () => {
+    console.log("🚪 Logout dipanggil");
+    try {
+      await fetch("http://localhost:5000/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("❌ Logout error:", err);
+    } finally {
+      setUser(null);
+      setToken(null);
+      localStorage.removeItem("smart_user");
+      localStorage.removeItem("smart_token");
+      router.push("/login");
+    }
+  }, [router]);
+
+  // ♻️ Refresh token otomatis
   const refreshToken = useCallback(async () => {
     try {
-      if (!token) return;
-
       const res = await fetch("http://localhost:5000/refresh-token", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include", // penting agar cookie refreshToken dikirim
       });
 
       if (!res.ok) throw new Error("Gagal memperpanjang token");
 
       const data = await res.json();
-      const newToken = data.token;
-      const newUser = data.user;
+      if (!data.token || !data.user) throw new Error("Data refresh tidak lengkap");
 
-      if (!newToken || !newUser) return;
-
-      // Konversi permissions → boolean
-      const p = newUser.permissions || {};
+      const p = data.user.permissions || {};
       const permissions: UserPermissions = {
         can_create: !!p.can_create,
         can_read: !!p.can_read,
@@ -74,21 +82,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         can_provision: !!p.can_provision,
       };
 
-      const updatedUser: User = { ...newUser, permissions };
+      const updatedUser: User = { ...data.user, permissions };
 
       setUser(updatedUser);
-      setToken(newToken);
+      setToken(data.token);
       localStorage.setItem("smart_user", JSON.stringify(updatedUser));
-      localStorage.setItem("smart_token", newToken);
+      localStorage.setItem("smart_token", data.token);
 
       console.log("🔁 Token berhasil diperpanjang:", new Date().toLocaleTimeString());
     } catch (err) {
       console.error("❌ Refresh token gagal:", err);
-      logout();
+      await logout();
     }
-  }, [token]);
+  }, [logout]);
 
-  // Restore session dari localStorage
+  // 🚀 Restore session dari localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem("smart_user");
     const storedToken = localStorage.getItem("smart_token");
@@ -102,11 +110,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout();
       }
     }
-
     setIsReady(true);
-  }, []);
+  }, [logout]);
 
-  // Jalankan auto-refresh token setiap 10 menit
+  // ⏰ Jalankan auto-refresh token setiap 10 menit
   useEffect(() => {
     if (!token) return;
     const interval = setInterval(() => {
@@ -115,19 +122,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [token, refreshToken]);
 
-  // Login
+  // 🔐 Login
   const login = async (user_id: string, password: string) => {
     try {
       const res = await fetch("http://localhost:5000/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // penting agar cookie refreshToken disimpan
         body: JSON.stringify({ user_id, password }),
       });
 
       if (!res.ok) throw new Error("Login gagal");
       const data = await res.json();
 
-      // Konversi permission ke boolean
       const p = data.user.permissions || {};
       const permissions: UserPermissions = {
         can_create: !!p.can_create,
@@ -140,12 +147,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
 
       const userData: User = { ...data.user, permissions };
-
-      // Simpan session
-      localStorage.setItem("smart_token", data.token);
-      localStorage.setItem("smart_user", JSON.stringify(userData));
       setUser(userData);
       setToken(data.token);
+
+      localStorage.setItem("smart_user", JSON.stringify(userData));
+      localStorage.setItem("smart_token", data.token);
 
       console.log("✅ Login berhasil untuk:", userData.name);
       return true;
@@ -155,46 +161,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Logout
-  const logout = useCallback(async () => {
-    console.log("🚪 Logout dipanggil");
-    try {
-      if (token) {
-        await fetch("http://localhost:5000/logout", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      }
-    } catch (err) {
-      console.error("❌ Logout error:", err);
-    } finally {
-      setUser(null);
-      setToken(null);
-      localStorage.removeItem("smart_user");
-      localStorage.removeItem("smart_token");
-      router.push("/login");
-    }
-  }, [token, router]);
-
-  // fetchWithAuth wrapper
+  // 🌐 fetchWithAuth → otomatis refresh jika expired
   const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     if (!token) throw new Error("Tidak ada token, harap login");
 
-    // Jika token expired → coba refresh dulu
     if (isTokenExpired(token)) {
       console.warn("⚠️ Token expired, mencoba refresh...");
       await refreshToken();
     }
 
-    const headers = {
-      ...options.headers,
-      Authorization: `Bearer ${token}`,
-    };
-
-    return fetch(url, { ...options, headers });
+    return fetch(url, {
+      ...options,
+      credentials: "include",
+      headers: {
+        ...options.headers,
+        Authorization: `Bearer ${token}`,
+      },
+    });
   };
 
   return (

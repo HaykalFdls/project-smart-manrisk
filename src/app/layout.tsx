@@ -1,23 +1,31 @@
 "use client";
 
+import { useEffect } from "react";
+import NProgress from "nprogress";
+import { usePathname } from "next/navigation";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { Toaster } from "@/components/ui/toaster";
 import AppLayout from "@/components/layout/app-layout";
-import { Loader2 } from "lucide-react";
+import GlobalLoading from "@/components/common/GlobalLoading";
 
 const inter = Inter({ subsets: ["latin"] });
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const { isReady } = useAuth();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    NProgress.start();
+    const timer = setTimeout(() => {
+      NProgress.done();
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [pathname]);
 
   if (!isReady) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <GlobalLoading />; 
   }
 
   return <AppLayout>{children}</AppLayout>;

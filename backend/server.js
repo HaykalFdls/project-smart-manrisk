@@ -8,7 +8,13 @@ import cookieParser from "cookie-parser";
 import { authenticateToken } from './middleware/auth.js';
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://localhost:9002"], // port frontend
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(cookieParser());
 
@@ -24,26 +30,39 @@ const db = await mysql.createConnection({
 
 // ======== USERS =============
 
-// Ambil semua user + role + permissions
+// Ambil semua user + role + unit + permissions
 app.get('/users', authenticateToken, async (req, res) => {
   const [rows] = await db.execute(`
     SELECT 
-      u.id, u.user_id, u.name, u.email, u.unit_id, u.status, 
+      u.id, 
+      u.user_id, 
+      u.name, 
+      u.email, 
+      u.unit_id, 
+      u.status, 
       r.role_name,
-      rp.can_create, rp.can_read, rp.can_view, rp.can_update, 
-      rp.can_approve, rp.can_delete, rp.can_provision
+      un.unit_name,
+      rp.can_create, 
+      rp.can_read, 
+      rp.can_view, 
+      rp.can_update, 
+      rp.can_approve, 
+      rp.can_delete, 
+      rp.can_provision
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
     LEFT JOIN role_permissions rp ON r.id = rp.role_id
+    LEFT JOIN units un ON u.unit_id = un.id
   `);
   res.json(rows);
 });
 
+
 // Tambah user
 app.post('/users', async (req, res) => {
   const { user_id, name, email, password, unit_id, role_id, status } = req.body;
-  if (!user_id || !name || !email || !password || !role_id) {
-    return res.status(400).json({ message: 'Data tidak lengkap' });
+  if (!user_id || !name || !password || !unit_id || !role_id) {
+    return res.status(400).json({ message: 'Data tidak lengkap (user_id, name, password, role_id wajib)' });
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -51,7 +70,7 @@ app.post('/users', async (req, res) => {
   await db.execute(
     `INSERT INTO users (user_id, name, email, password, unit_id, role_id, status)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [user_id, name, email, hashedPassword, unit_id || null, role_id, status || 'active']
+     [user_id, name, email || null, hashedPassword, unit_id, role_id, status || 'active']
   );
 
   res.json({ message: 'User berhasil ditambahkan' });
@@ -128,6 +147,8 @@ app.post("/login", async (req, res) => {
          VALUES (?, ?, ?, 0, ?, ?)`,
         [user.id, req.ip, req.get("User-Agent"), user.role_name, user.unit_name]
       );
+
+      console.warn(`[LOGIN FAIL] ${user_id} — Password salah (${new Date().toLocaleString()})`);
       return res.status(401).json({ message: "Password salah" });
     }
 
@@ -142,7 +163,7 @@ app.post("/login", async (req, res) => {
     // 🔐 Generate tokens
     const accessToken = jwt.sign(
       { id: user.id, role_id: user.role_id },
-      ACCESS_SECRET,
+      JWT_SECRET,
       { expiresIn: "1h" }
     );
     const refreshToken = jwt.sign(
@@ -164,6 +185,8 @@ app.post("/login", async (req, res) => {
        VALUES (?, ?, ?, 1, ?, ?)`,
       [user.id, req.ip, req.get("User-Agent"), user.role_name, user.unit_name]
     );
+
+    console.log(`[LOGIN SUCCESS] ${user_id} (${user.name}) berhasil login pada ${new Date().toLocaleString()}`);
 
     res.json({
       token: accessToken,
@@ -188,25 +211,61 @@ app.post("/login", async (req, res) => {
 
 // ======== REFRESH TOKEN =========
 app.post("/refresh-token", async (req, res) => {
-  const refreshToken = req.body.refreshToken;
+  // Ambil refreshToken dari cookie atau body
+  const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
   if (!refreshToken) return res.status(401).json({ message: "Refresh token tidak ada" });
 
-  jwt.verify(refreshToken, JWT_SECRET, (err, user) => {
+  jwt.verify(refreshToken, REFRESH_SECRET, async (err, decoded) => {
     if (err) return res.status(403).json({ message: "Refresh token tidak valid" });
 
+    // Buat token baru
     const newToken = jwt.sign(
-      { id: user.id, role_id: user.role_id },
+      { id: decoded.id, role_id: decoded.role_id },
       JWT_SECRET,
       { expiresIn: "1h" }
     );
 
-    console.log(`🔄 Token diperpanjang untuk user_id=${user.id} pada ${new Date().toLocaleString()}`);
+    // Ambil ulang data user (agar data permissions tetap update)
+    const [rows] = await db.execute(`
+      SELECT u.*, r.role_name, un.unit_name,
+        rp.can_create, rp.can_read, rp.can_view, rp.can_update,
+        rp.can_approve, rp.can_delete, rp.can_provision
+      FROM users u
+      LEFT JOIN roles r ON u.role_id = r.id
+      LEFT JOIN units un ON u.unit_id = un.id
+      LEFT JOIN role_permissions rp ON r.id = rp.role_id
+      WHERE u.id = ?
+    `, [decoded.id]);
 
-    res.json({ token: newToken });
+    if (!rows.length) return res.status(404).json({ message: "User tidak ditemukan" });
+
+    const user = rows[0];
+
+    res.json({
+      token: newToken,
+      user: {
+        id: user.id,
+        user_id: user.user_id,
+        name: user.name,
+        email: user.email,
+        role_id: user.role_id,
+        role_name: user.role_name,
+        unit_id: user.unit_id,
+        unit_name: user.unit_name,
+        status: user.status,
+        permissions: {
+          can_create: !!user.can_create,
+          can_read: !!user.can_read,
+          can_view: !!user.can_view,
+          can_update: !!user.can_update,
+          can_approve: !!user.can_approve,
+          can_delete: !!user.can_delete,
+          can_provision: !!user.can_provision,
+        },
+      },
+    });
   });
 });
-
-
 
 // === LOGOUT ===
 app.post("/logout", authenticateToken, async (req, res) => {
@@ -222,6 +281,7 @@ app.post("/logout", authenticateToken, async (req, res) => {
     );
 
     res.clearCookie("refreshToken");
+    console.log(`[LOGOUT] User ID ${userId} logout pada ${new Date().toLocaleString()}`);
     res.json({ message: "Logout berhasil" });
   } catch (err) {
     console.error("Logout error:", err);
@@ -249,7 +309,8 @@ app.get("/user-logins", authenticateToken, async (req, res) => {
       JOIN users u ON ul.user_id = u.id
       ORDER BY ul.login_time DESC
     `);
-
+    
+    console.log(`[USER_LOGINS] ${rows.length} logins diambil pada ${new Date().toLocaleString()}`);
     res.json(rows);
   } catch (err) {
     console.error("Gagal mengambil data user_logins:", err);

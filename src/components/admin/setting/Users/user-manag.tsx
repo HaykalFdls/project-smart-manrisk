@@ -3,6 +3,8 @@
 import { User } from "@/types/user";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useState } from "react";
+import AddUserDialog from "@/components/admin/setting/Users/AddUserDialog";
 
 function getInitials(name: string) {
   return name
@@ -13,6 +15,8 @@ function getInitials(name: string) {
 }
 
 export default function UserTable({ users }: { users: User[] }) {
+  const [openAdd, setOpenAdd] = useState(false);
+
   return (
     <Card className="p-6 w-full shadow-md">
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
@@ -22,10 +26,19 @@ export default function UserTable({ users }: { users: User[] }) {
             Melihat dan mengelola akun pengguna dan penetapan perannya
           </p>
         </div>
-        <Button size="lg" onClick={() => alert("Tambah user nanti di sini")}>
+        <Button size="lg" onClick={() => setOpenAdd(true)}>
           + Add User
         </Button>
       </div>
+
+      <AddUserDialog
+        open={openAdd}
+        onClose={() => setOpenAdd(false)}
+        onSuccess={() => {
+          setOpenAdd(false);
+          window.location.reload(); // atau panggil ulang fetch data
+        }}
+      />
 
       {users.length === 0 ? (
         <div className="text-center py-10 text-gray-500">
@@ -39,7 +52,7 @@ export default function UserTable({ users }: { users: User[] }) {
                 <th className="p-4">User</th>
                 <th className="p-4">Role</th>
                 <th className="p-4">Status</th>
-                <th className="p-4">Email</th>
+                <th className="p-4">Unit Kerja</th>
                 <th className="p-4"></th>
               </tr>
             </thead>
@@ -71,7 +84,7 @@ export default function UserTable({ users }: { users: User[] }) {
                       {user.status}
                     </span>
                   </td>
-                  <td className="p-4 text-gray-600">{user.email}</td>
+                  <td className="p-4 text-gray-600">{user.unit_name}</td>
                   <td className="p-4 text-right">
                     <button className="p-2 hover:bg-gray-200 rounded">
                       ⋮
