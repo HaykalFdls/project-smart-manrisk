@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = "your_secret_key"; // lebih baik ditaro di .env
+const JWT_SECRET = "access_secret_key"; // lebih baik ditaro di .env
 
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers["authorization"];
