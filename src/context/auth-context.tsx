@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // 🚪 Logout (hapus session & redirect)
+  // Logout (hapus session & redirect)
   const logout = useCallback(async () => {
     console.log("🚪 Logout dipanggil");
     try {
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [router]);
 
-  // ♻️ Refresh token otomatis
+  // Refresh token otomatis
   const refreshToken = useCallback(async () => {
     try {
       const res = await fetch("http://localhost:5000/refresh-token", {
@@ -89,14 +89,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("smart_user", JSON.stringify(updatedUser));
       localStorage.setItem("smart_token", data.token);
 
-      console.log("🔁 Token berhasil diperpanjang:", new Date().toLocaleTimeString());
+      console.log(" Token berhasil diperpanjang:", new Date().toLocaleTimeString());
     } catch (err) {
       console.error("❌ Refresh token gagal:", err);
       await logout();
     }
   }, [logout]);
 
-  // 🚀 Restore session dari localStorage
+  //  Restore session dari localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem("smart_user");
     const storedToken = localStorage.getItem("smart_token");
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsReady(true);
   }, [logout]);
 
-  // ⏰ Jalankan auto-refresh token setiap 10 menit
+  //  Jalankan auto-refresh token setiap 10 menit
   useEffect(() => {
     if (!token) return;
     const interval = setInterval(() => {
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [token, refreshToken]);
 
-  // 🔐 Login
+  //  Login
   const login = async (user_id: string, password: string) => {
     try {
       const res = await fetch("http://localhost:5000/login", {
@@ -161,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // 🌐 fetchWithAuth → otomatis refresh jika expired
+  //  fetchWithAuth → otomatis refresh jika expired
   const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     if (!token) throw new Error("Tidak ada token, harap login");
 

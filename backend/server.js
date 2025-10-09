@@ -645,9 +645,10 @@ app.get("/rcsa/assessment", async (req, res) => {
 
 
 // Ambil assessment draft
-app.get("/rcsa/assessment/drafts", async (req, res) => {
+app.get("/rcsa/assessment/drafts", authenticateToken, async (req, res) => {
   try {
-    const { created_by, unit_id, exclude_submitted } = req.query;
+    const { unit_id, exclude_submitted } = req.query;
+    const created_by = req.user.id;
 
     let sql = `
       SELECT 
