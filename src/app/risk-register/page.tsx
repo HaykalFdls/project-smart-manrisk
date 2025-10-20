@@ -174,7 +174,7 @@ export default function RiskRegisterPage() {
       <CardHeader className="pb-4 border-b">
         <CardTitle className="text-2xl font-bold text-primary flex items-center gap-2">
           <TrendingUp className="w-6 h-6" /> 
-          Register Risiko Bisnis Inti
+          RISK REGISTER 
         </CardTitle>
         <p className="text-gray-500 text-sm mt-1">Gunakan tabel ini untuk mencatat, menilai, dan merencanakan mitigasi risiko.</p>
       </CardHeader>

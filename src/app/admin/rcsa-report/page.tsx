@@ -18,7 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as XLSX from "xlsx";
-import { Textarea } from "@/components/ui/textarea"; // Diperlukan untuk konten panjang
+import { Textarea } from "@/components/ui/textarea"; 
 
 // --- Helpers (tetap sama) ---
 const getLevelFromBesaran = (
@@ -32,7 +32,6 @@ const getLevelFromBesaran = (
     return { label: "Rendah", color: "bg-green-500 text-white" };
 };
 
-// --- Component Tabel Laporan RCSA (RCSAStaticTable) ---
 const RCSAStaticTable = ({
     submissions,
     onApprove,
@@ -40,10 +39,8 @@ const RCSAStaticTable = ({
     submissions: (RCSAData & { approved?: boolean })[];
     onApprove: (id: number | undefined) => void;
 }) => {
-    // Kita akan menggunakan state lokal untuk menangani perubahan (simulasi edit) jika diperlukan
     const [dataRows, setDataRows] = useState(submissions);
 
-    // useEffect untuk memperbarui state lokal ketika prop submissions berubah (misal setelah filter)
     useEffect(() => {
         setDataRows(submissions);
     }, [submissions]);
@@ -54,136 +51,138 @@ const RCSAStaticTable = ({
         setDataRows(prev => prev.map(r => r.id === id ? { ...r, approved: true } : r));
     };
 
+    console.log("Data Rows:", dataRows);
 
     return (
-        <div className="overflow-x-auto border rounded-lg shadow-lg">
-            {/* Minimal lebar diatur lebih besar untuk menampung semua kolom */}
-            <table className="min-w-[3000px] divide-y divide-gray-200">
+        <div className="relative border rounded-lg shadow-lg w-full flex flex-col bg-white">
+            <div className="flex-1 overflow-auto">
+                <table className="min-w-[3000px] divide-y divide-gray-200">
                 {/* Header Tabel */}
-                <thead className="bg-gray-50 sticky top-0 z-10">
-                    <tr className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <th className="px-3 py-3 text-left w-[40px] sticky left-0 bg-gray-50">No</th>
-                        <th className="px-3 py-3 text-left w-[100px]">Divisi</th>
-                        <th className="px-3 py-3 text-left w-[180px]">Potensi Risiko</th>
-                        <th className="px-3 py-3 text-left w-[150px]">Jenis Risiko</th>
-                        <th className="px-3 py-3 text-left w-[250px]">Penyebab Risiko</th>
+                    <thead className="bg-gray-50 sticky top-0 z-10">
+                        <tr className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-3 py-3 text-left w-[40px] sticky left-0 bg-gray-50">No</th>
+                            <th className="px-20 py-4 text-left w-[300px]">Unit Kerja</th>
+                            <th className="px-3 py-3 text-left w-[180px]">Potensi Risiko</th>
+                            <th className="px-3 py-3 text-left w-[150px]">Jenis Risiko</th>
+                            <th className="px-3 py-3 text-left w-[250px]">Penyebab Risiko</th>
+                            
+                            <th colSpan={3} className="px-3 py-1 text-center bg-red-100 border-x">RISIKO INHEREN</th>
+                            <th colSpan={3} className="px-3 py-1 text-center bg-yellow-100 border-x">RISIKO RESIDUAL</th>
+                            
+                            <th className="px-3 py-3 text-left w-[120px]">Penilaian Kontrol</th>
+                            <th className="px-3 py-3 text-left w-[250px]">Action Plan</th>
+                            <th className="px-3 py-3 text-left w-[100px]">PIC</th>
+                            <th className="px-3 py-3 text-left w-[80px]">Status</th>
+                            <th className="px-3 py-3 text-left w-[80px] sticky right-0 bg-gray-50">Aksi</th>
+                        </tr>
+                        <tr className="text-[10px] font-bold text-gray-600 uppercase tracking-wider bg-red-50">
+                            <th className="px-3 py-1 text-left sticky left-0 bg-red-50"></th>
+                            <th className="px-3 py-1 text-left"></th>
+                            <th className="px-3 py-1 text-left"></th>
+                            <th className="px-3 py-1 text-left"></th>
+                            <th className="px-3 py-1 text-left"></th>
+                            
+                            {/* Sub Header Inheren */}
+                            <th className="px-2 py-1 text-center bg-red-200">Dampak x Frek</th>
+                            <th className="px-2 py-1 text-center bg-red-200">Besaran</th>
+                            <th className="px-2 py-1 text-center bg-red-200">Level</th>
+        
+                            {/* Sub Header Residual */}
+                            <th className="px-2 py-1 text-center bg-yellow-200">Dampak x Kemung.</th>
+                            <th className="px-2 py-1 text-center bg-yellow-200">Besaran</th>
+                            <th className="px-2 py-1 text-center bg-yellow-200">Level</th>
+        
+                            <th className="px-3 py-1 text-left"></th>
+                            <th className="px-3 py-1 text-left"></th>
+                            <th className="px-3 py-1 text-left"></th>
+                            <th className="px-3 py-1 text-left"></th>
+                            <th className="px-3 py-1 text-left sticky right-0 bg-red-50"></th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {dataRows.map((data, index) => {
+                            const besaranInheren = data.dampakInheren && data.frekuensiInheren ? data.dampakInheren * data.frekuensiInheren : null;
+                            const levelInheren = getLevelFromBesaran(besaranInheren);
+                            const besaranResidual = data.dampakResidual && data.kemungkinanResidual ? data.dampakResidual * data.kemungkinanResidual : null;
+                            const levelResidual = getLevelFromBesaran(besaranResidual);
                         
-                        <th colSpan={3} className="px-3 py-1 text-center bg-red-100 border-x">RISIKO INHEREN</th>
-                        <th colSpan={3} className="px-3 py-1 text-center bg-yellow-100 border-x">RISIKO RESIDUAL</th>
-                        
-                        <th className="px-3 py-3 text-left w-[120px]">Penilaian Kontrol</th>
-                        <th className="px-3 py-3 text-left w-[250px]">Action Plan</th>
-                        <th className="px-3 py-3 text-left w-[100px]">PIC</th>
-                        <th className="px-3 py-3 text-left w-[80px]">Status</th>
-                        <th className="px-3 py-3 text-left w-[80px] sticky right-0 bg-gray-50">Aksi</th>
-                    </tr>
-                    <tr className="text-[10px] font-bold text-gray-600 uppercase tracking-wider bg-red-50">
-                        <th className="px-3 py-1 text-left sticky left-0 bg-red-50"></th>
-                        <th className="px-3 py-1 text-left"></th>
-                        <th className="px-3 py-1 text-left"></th>
-                        <th className="px-3 py-1 text-left"></th>
-                        <th className="px-3 py-1 text-left"></th>
-                        
-                        {/* Sub Header Inheren */}
-                        <th className="px-2 py-1 text-center bg-red-200">Dampak x Frek</th>
-                        <th className="px-2 py-1 text-center bg-red-200">Besaran</th>
-                        <th className="px-2 py-1 text-center bg-red-200">Level</th>
-
-                        {/* Sub Header Residual */}
-                        <th className="px-2 py-1 text-center bg-yellow-200">Dampak x Kemung.</th>
-                        <th className="px-2 py-1 text-center bg-yellow-200">Besaran</th>
-                        <th className="px-2 py-1 text-center bg-yellow-200">Level</th>
-
-                        <th className="px-3 py-1 text-left"></th>
-                        <th className="px-3 py-1 text-left"></th>
-                        <th className="px-3 py-1 text-left"></th>
-                        <th className="px-3 py-1 text-left"></th>
-                        <th className="px-3 py-1 text-left sticky right-0 bg-red-50"></th>
-                    </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                    {dataRows.map((data, index) => {
-                        const besaranInheren = data.dampakInheren && data.frekuensiInheren ? data.dampakInheren * data.frekuensiInheren : null;
-                        const levelInheren = getLevelFromBesaran(besaranInheren);
-                        const besaranResidual = data.dampakResidual && data.kemungkinanResidual ? data.dampakResidual * data.kemungkinanResidual : null;
-                        const levelResidual = getLevelFromBesaran(besaranResidual);
-
-                        return (
-                            <tr key={data.id} className="text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                                {/* Kolom Kunci (Sticky) */}
-                                <td className="px-3 py-2 whitespace-nowrap text-left font-semibold text-xs sticky left-0 bg-white border-r border-gray-200">{data.no}</td>
-                                
-                                {/* Kolom Data Dasar */}
-                                <td className="px-3 py-2 whitespace-nowrap text-left text-xs">{data.unit_name}</td>
-                                <td className="px-3 py-2 text-left truncate max-w-[180px] text-xs">{data.potensiRisiko}</td>
-                                <td className="px-3 py-2 whitespace-nowrap text-left text-xs">{data.jenisRisiko}</td>
-                                
-                                {/* Penyebab Risiko (Menggunakan Textarea untuk konten panjang) */}
-                                <td className="px-2 py-1 align-top">
-                                    <Textarea 
-                                        value={data.penyebabRisiko} 
-                                        className="h-12 min-w-[250px] text-xs resize-y border-none bg-transparent focus-visible:ring-1 focus-visible:ring-primary"
-                                        readOnly // Biasanya laporan tidak bisa diedit di sini
-                                    />
-                                </td>
-
-                                {/* Kolom Inheren */}
-                                <td className="px-2 py-2 text-center text-xs text-red-700 bg-red-50">{data.dampakInheren} x {data.frekuensiInheren}</td>
-                                <td className="px-2 py-2 text-center font-bold text-red-800 bg-red-100">{besaranInheren || "-"}</td>
-                                <td className="px-2 py-2 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${levelInheren.color}`}>
-                                        {levelInheren.label}
-                                    </span>
-                                </td>
-
-                                {/* Kolom Residual */}
-                                <td className="px-2 py-2 text-center text-xs text-yellow-700 bg-yellow-50">{data.dampakResidual} x {data.kemungkinanResidual}</td>
-                                <td className="px-2 py-2 text-center font-bold text-yellow-800 bg-yellow-100">{besaranResidual || "-"}</td>
-                                <td className="px-2 py-2 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${levelResidual.color}`}>
-                                        {levelResidual.label}
-                                    </span>
-                                </td>
-                                
-                                {/* Penilaian Kontrol, Action Plan, PIC */}
-                                <td className="px-3 py-2 text-left text-xs">{data.penilaianKontrol || "-"}</td>
-                                <td className="px-2 py-1 align-top">
-                                    <Textarea 
-                                        value={data.actionPlan} 
-                                        className="h-12 min-w-[250px] text-xs resize-y border-none bg-transparent focus-visible:ring-1 focus-visible:ring-primary"
-                                        readOnly
-                                    />
-                                </td>
-                                <td className="px-3 py-2 text-left text-xs whitespace-nowrap">{data.pic || "-"}</td>
-
-
-                                {/* Status */}
-                                <td className="px-3 py-2 text-left">
-                                    <Badge variant={data.approved ? "outline" : "secondary"} className={data.approved ? "text-green-600 border-green-600" : ""}>
-                                        {data.approved ? "Approved" : "Pending"}
-                                    </Badge>
-                                </td>
-
-                                {/* Aksi Approve (Sticky) */}
-                                <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-gray-200">
-                                    {!data.approved && (
-                                        <Button 
-                                            size="sm" 
-                                            onClick={() => handleApproveInTable(data.id)}
-                                            className="h-7 px-2 text-xs"
-                                        >
-                                            Approve
-                                        </Button>
-                                    )}
-                                    {data.approved && (
-                                        <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto" />
-                                    )}
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
+                            return (
+                                <tr key={data.id} className="text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                                    {/* Kolom Kunci (Sticky) */}
+                                    <td className="px-3 py-2 whitespace-nowrap text-left font-semibold text-xs sticky left-0 bg-white border-r border-gray-200">{data.no}</td>
+                                    
+                                    {/* Kolom Data Dasar */}
+                                    <td className="px-3 py-2 whitespace-nowrap text-left text-xs">{data.unit_name}</td>
+                                    <td className="px-3 py-2 text-left truncate max-w-[180px] text-xs">{data.potensiRisiko}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-left text-xs">{data.jenisRisiko}</td>
+                                    
+                                    {/* Penyebab Risiko (Menggunakan Textarea untuk konten panjang) */}
+                                    <td className="px-2 py-1 align-top">
+                                        <Textarea 
+                                            value={data.penyebabRisiko} 
+                                            className="h-12 min-w-[250px] text-xs resize-y border-none bg-transparent focus-visible:ring-1 focus-visible:ring-primary"
+                                            readOnly // Biasanya laporan tidak bisa diedit di sini
+                                        />
+                                    </td>
+                            
+                                    {/* Kolom Inheren */}
+                                    <td className="px-2 py-2 text-center text-xs text-red-700 bg-red-50">{data.dampakInheren} x {data.frekuensiInheren}</td>
+                                    <td className="px-2 py-2 text-center font-bold text-red-800 bg-red-100">{besaranInheren || "-"}</td>
+                                    <td className="px-2 py-2 text-center">
+                                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${levelInheren.color}`}>
+                                            {levelInheren.label}
+                                        </span>
+                                    </td>
+                            
+                                    {/* Kolom Residual */}
+                                    <td className="px-2 py-2 text-center text-xs text-yellow-700 bg-yellow-50">{data.dampakResidual} x {data.kemungkinanResidual}</td>
+                                    <td className="px-2 py-2 text-center font-bold text-yellow-800 bg-yellow-100">{besaranResidual || "-"}</td>
+                                    <td className="px-2 py-2 text-center">
+                                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${levelResidual.color}`}>
+                                            {levelResidual.label}
+                                        </span>
+                                    </td>
+                                    
+                                    {/* Penilaian Kontrol, Action Plan, PIC */}
+                                    <td className="px-3 py-2 text-left text-xs">{data.penilaianKontrol || "-"}</td>
+                                    <td className="px-2 py-1 align-top">
+                                        <Textarea 
+                                            value={data.actionPlan} 
+                                            className="h-12 min-w-[250px] text-xs resize-y border-none bg-transparent focus-visible:ring-1 focus-visible:ring-primary"
+                                            readOnly
+                                        />
+                                    </td>
+                                    <td className="px-3 py-2 text-left text-xs whitespace-nowrap">{data.pic || "-"}</td>
+                            
+                            
+                                    {/* Status */}
+                                    <td className="px-3 py-2 text-left">
+                                        <Badge variant={data.approved ? "outline" : "secondary"} className={data.approved ? "text-green-600 border-green-600" : ""}>
+                                            {data.approved ? "Approved" : "Pending"}
+                                        </Badge>
+                                    </td>
+                            
+                                    {/* Aksi Approve (Sticky) */}
+                                    <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-gray-200">
+                                        {!data.approved && (
+                                            <Button 
+                                                size="sm" 
+                                                onClick={() => handleApproveInTable(data.id)}
+                                                className="h-7 px-2 text-xs"
+                                            >
+                                                Approve
+                                            </Button>
+                                        )}
+                                        {data.approved && (
+                                            <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto" />
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 };
@@ -216,7 +215,6 @@ export default function RcsaReportPage() {
         );
     };
     
-    // ... (downloadExcel, filteredSubmissions, useEffect, uniqueDivisions tetap sama) ...
     const downloadExcel = () => {
         const approvedReports = submissions.filter((s) => s.approved);
         if (approvedReports.length === 0) {
@@ -263,62 +261,64 @@ export default function RcsaReportPage() {
     const uniqueDivisions = Array.from(
         new Set(submissions.map((s) => s.unit_name).filter(Boolean))
     );
-    // ------------------------------------------------------------------------------------
 
     return (
-        <div className="flex flex-1 flex-col p-4 md:p-6 lg:p-8">
-            {/* Header */}
-            <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Laporan RCSA</h1>
-                    <p className="text-muted-foreground">
-                        Tinjau semua data RCSA yang telah dikirim oleh unit operasional.
-                    </p>
-                </div>
-                <div className="flex gap-2">
-                    <Button onClick={downloadExcel} variant="default" className="bg-green-600 hover:bg-green-700">
-                        <FileSpreadsheet className="mr-2 h-4 w-4" />
-                        Download Approved
-                    </Button>
-                    <Button onClick={loadData} variant="outline">
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Muat Ulang Data
-                    </Button>
-                </div>
-            </div>
-
-            {/* Filter */}
-            <div className="mb-6 flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Filter Divisi:</span>
-                <Select
-                    value={selectedDivision}
-                    onValueChange={(val) => setSelectedDivision(val)}
-                >
-                    <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Pilih Divisi" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua</SelectItem>
-                        {uniqueDivisions.map((div, idx) => (
-                            <SelectItem key={idx} value={div!}>
-                                {div}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            {/* Tampilan Tabel Statis */}
-            {filteredSubmissions.length === 0 ? (
-                <div className="text-center text-muted-foreground py-12">
-                    Tidak ada laporan RCSA untuk filter ini.
-                </div>
-            ) : (
-                <RCSAStaticTable
-                    submissions={filteredSubmissions}
-                    onApprove={handleApprove}
-                />
-            )}
+  <div className="flex flex-col h-full overflow-hidden">
+    {/* Header */}
+    <div className="flex-shrink-0 mb-4 md:mb-8">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Laporan RCSA</h1>
+          <p className="text-muted-foreground">
+            Tinjau semua data RCSA yang telah dikirim oleh unit operasional.
+          </p>
         </div>
-    );
+        <div className="flex gap-2">
+          <Button
+            onClick={downloadExcel}
+            variant="default"
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Download Approved
+          </Button>
+          <Button onClick={loadData} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Muat Ulang Data
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    {/* Filter */}
+    <div className="flex-shrink-0 mb-4 flex items-center gap-2">
+      <span className="text-sm text-muted-foreground">Filter Divisi:</span>
+      <Select value={selectedDivision} onValueChange={(val) => setSelectedDivision(val)}>
+        <SelectTrigger className="w-[200px]">
+          <SelectValue placeholder="Pilih Divisi" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Semua</SelectItem>
+          {uniqueDivisions.map((div, idx) => (
+            <SelectItem key={idx} value={div!}>
+              {div}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* 🔹 Kontainer scroll khusus tabel */}
+    <div className="flex-1 overflow-auto">
+      {filteredSubmissions.length === 0 ? (
+        <div className="text-center text-muted-foreground py-12">
+          Tidak ada laporan RCSA untuk filter ini.
+        </div>
+      ) : (
+        <RCSAStaticTable submissions={filteredSubmissions} onApprove={handleApprove} />
+      )}
+    </div>
+  </div>
+);
+
 }

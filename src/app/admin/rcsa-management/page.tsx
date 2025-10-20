@@ -26,29 +26,47 @@ export default function RcsaManagementPage() {
   const [selectedUnit, setSelectedUnit] = useState<string>("");
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/master-rcsa");
-        const json = await res.json();
-        setData(
-          json.map((row: any, idx: number) => ({
-            no: idx + 1,
-            potensiRisiko: row.rcsa_name,
-            keteranganAdmin: row.description,
-            id: row.id,
-            unit_id: row.unit_id,
-            unit_name: row.unit_name,
-          }))
-        );
-      } catch (err) {
-        console.error(err);
-        toast({ title: "Error", description: "Gagal memuat data master RCSA" });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [toast]);
+  const fetchData = async () => {
+    try {
+      const unitId = 10;
+      console.log("Fetching RCSA master for unit:", unitId);
+
+      const res = await fetch(`http://localhost:5000/rcsa/master`, {
+        credentials: "include", // wajib karena cookie JWT di HTTP-only
+      });
+
+      console.log("🔍 Response status:", res.status);
+
+      const text = await res.text(); // baca dulu sebagai text
+      console.log("📦 Raw response:", text);
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const json = JSON.parse(text); // parse manual agar bisa debug
+      console.log("✅ Parsed JSON:", json);
+
+      setData(
+        json.map((row: any, idx: number) => ({
+          no: idx + 1,
+          potensiRisiko: row.rcsa_name,
+          keteranganAdmin: row.description,
+          id: row.id,
+          unit_id: row.unit_id,
+          unit_name: row.unit_name || "Unit Tidak Diketahui",
+        }))
+      );
+    } catch (err) {
+      console.error("❌ Fetch error:", err);
+      toast({ title: "Error", description: "Gagal memuat data master RCSA" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchData();
+}, [toast]);
+
+
 
   const handleSave = async () => {
     setIsSaving(true);
