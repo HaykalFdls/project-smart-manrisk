@@ -22,6 +22,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import type { RCSAData } from '@/lib/rcsa-data';
 import { createMasterRCSA } from '@/lib/rcsa-master-data';
+import { SearchableSelect } from "@/components/ui/searchable-select";
+
 
 type AddMasterDataModalProps = {
   isOpen: boolean;
@@ -32,7 +34,7 @@ type AddMasterDataModalProps = {
 type Unit = {
   id: number;
   unit_name: string;
-  unit_type: 'pusat' | 'cabang' | 'lainnya';
+  parent_id: number | null;
 };
 
 export function AddMasterDataModal({
@@ -41,106 +43,99 @@ export function AddMasterDataModal({
   onSave,
 }: AddMasterDataModalProps) {
   const { user } = useAuth();
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [targetType, setTargetType] = useState<'pusat' | 'cabang' | ''>('');
-  const [division, setDivision] = useState('');
-  const [branchType, setBranchType] = useState('');
+  const [parents, setParents] = useState<Unit[]>([]);
+  const [children, setChildren] = useState<Unit[]>([]);
+  const [selectedParent, setSelectedParent] = useState<string>('');
+  const [selectedChild, setSelectedChild] = useState<string>('');
   const [potensiRisiko, setPotensiRisiko] = useState('');
   const [keterangan, setKeterangan] = useState('');
 
-  // Ambil daftar unit
+  // Ambil daftar parent (unit dengan parent_id = null)
   useEffect(() => {
-    fetch("http://localhost:5000/units")
+    fetch("http://localhost:5000/units?parent_id=null")
       .then((res) => res.json())
       .then((data) => {
-        const mapped = data.map((u: any) => {
-          let type: 'pusat' | 'cabang' | 'lainnya' = 'lainnya';
-          if (u.unit_type === "Kantor Pusat" || u.unit_type === "Divisi") {
-            type = "pusat";
-          } else if (u.unit_type === "Cabang" || u.unit_type === "KCP") {
-            type = "cabang";
-          }
-          return { ...u, unit_type: type };
-        });
-        setUnits(mapped);
+        setParents(data);
       })
-      .catch((err) => console.error("Gagal fetch units:", err));
+      .catch((err) => console.error("❌ Gagal fetch parents:", err));
   }, []);
 
-  // filter unit
-  const pusatUnits = units.filter((u) => u.unit_type === "pusat");
-  const cabangUnits = units.filter((u) => u.unit_type === "cabang");
+  // Ambil daftar anak (children) saat parent dipilih
+  useEffect(() => {
+    if (!selectedParent) {
+      setChildren([]);
+      return;
+    }
+
+    const parentId = Number(selectedParent);
+
+    fetch(`http://localhost:5000/units?parent_id=${parentId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        // Jangan tampilkan parent lagi di dropdown anak
+        const filtered = data.filter((u: Unit) => u.id !== parentId);
+        setChildren(filtered);
+      })
+      .catch((err) => console.error("❌ Gagal fetch anak:", err));
+  }, [selectedParent]);
 
   const isTargetSelected = useMemo(() => {
-    if (targetType === 'pusat' && division) return true;
-    if (targetType === 'cabang' && branchType) return true;
-    return false;
-  }, [targetType, division, branchType]);
+    return Boolean(selectedChild || selectedParent);
+  }, [selectedParent, selectedChild]);
 
   const isSaveDisabled = useMemo(() => {
     return !isTargetSelected || !potensiRisiko;
   }, [isTargetSelected, potensiRisiko]);
 
-  // Simpan master baru
-const handleSave = async () => {
-  let unitId = 0;
+  //  Simpan master baru
+  const handleSave = async () => {
+    const unitId = selectedChild ? Number(selectedChild) : Number(selectedParent);
 
-  if (targetType === "pusat" && division) {
-    unitId = Number(division);
-  } else if (targetType === "cabang" && branchType) {
-    unitId = Number(branchType);
-  }
-
-  if (!user) {
-    console.error("❌ User belum login, tidak bisa simpan");
-    return;
-  }
-
-    console.log("👤 User dari useAuth:", user);
-
-  try {
-    const newMaster = await createMasterRCSA({
-      rcsa_name: potensiRisiko,
-      description: keterangan,
-      unit_id: unitId,
-      created_by: user.id,
-    });
-
-    if (newMaster) {
-      const selectedUnit = units.find((u) => u.id === unitId);
-      onSave({
-        id: newMaster.id,
-        unit_id: newMaster.unit_id,
-        potensiRisiko,
-        keteranganAdmin: keterangan,
-        keteranganUser: "",
-        jenisRisiko: null,
-        penyebabRisiko: null,
-        dampakInheren: null,
-        frekuensiInheren: null,
-        pengendalian: null,
-        dampakResidual: null,
-        kemungkinanResidual: null,
-        penilaianKontrol: null,
-        actionPlan: null,
-        pic: null,
-        unit_name: selectedUnit?.unit_name ?? "Unit Tidak Diketahui",
-        unit_type: selectedUnit?.unit_type ?? "",
-      });
-      resetForm();
-      onClose();
+    if (!user) {
+      console.error("❌ User belum login, tidak bisa simpan");
+      return;
     }
-  } catch (err) {
-    console.error("❌ handleSave error:", err);
-  }
-};
 
+    try {
+      const newMaster = await createMasterRCSA({
+        rcsa_name: potensiRisiko,
+        description: keterangan,
+        unit_id: unitId,
+        created_by: user.id,
+      });
 
-  // Reset form
+      if (newMaster) {
+        const selectedUnit = [...parents, ...children].find((u) => u.id === unitId);
+        onSave({
+          id: newMaster.id,
+          unit_id: newMaster.unit_id,
+          potensiRisiko,
+          keteranganAdmin: keterangan,
+          keteranganUser: "",
+          jenisRisiko: null,
+          penyebabRisiko: null,
+          dampakInheren: null,
+          frekuensiInheren: null,
+          pengendalian: null,
+          dampakResidual: null,
+          kemungkinanResidual: null,
+          penilaianKontrol: null,
+          actionPlan: null,
+          pic: null,
+          unit_name: selectedUnit?.unit_name ?? "Unit Tidak Diketahui",
+          unit_type: "",
+        });
+        resetForm();
+        onClose();
+      }
+    } catch (err) {
+      console.error("❌ handleSave error:", err);
+    }
+  };
+
   const resetForm = () => {
-    setTargetType('');
-    setDivision('');
-    setBranchType('');
+    setSelectedParent('');
+    setSelectedChild('');
     setPotensiRisiko('');
     setKeterangan('');
   };
@@ -156,76 +151,55 @@ const handleSave = async () => {
         <DialogHeader>
           <DialogTitle>Tambah Master Risiko Baru</DialogTitle>
           <DialogDescription>
-            Pilih tujuan unit kerja terlebih dahulu, kemudian isi detail risiko.
+            Pilih unit induk terlebih dahulu, lalu pilih unit anak (jika ada).
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-6 py-4">
-          {/* Step 1: Pilih Tujuan */}
+          {/* Step 1: Pilih Parent dan Child */}
           <div className="space-y-4 rounded-md border p-4">
-            <h4 className="font-semibold text-sm">Langkah 1: Pilih Tujuan</h4>
-            <div className="space-y-2">
-              <Label>Tujuan</Label>
-              <Select
-                onValueChange={(value: 'pusat' | 'cabang') => {
-                  setTargetType(value);
-                  setDivision('');
-                  setBranchType('');
-                }}
-                value={targetType}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih tujuan..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pusat">Kantor Pusat</SelectItem>
-                  <SelectItem value="cabang">Kantor Cabang</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <h4 className="font-semibold text-sm">Langkah 1: Pilih Unit</h4>
 
-            {targetType === 'pusat' && (
-              <Select
-                onValueChange={(value) => setDivision(value)}
-                value={division}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih divisi..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {pusatUnits.map((u) => (
-                    <SelectItem key={u.id} value={String(u.id)}>
-                      {u.unit_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            {/* Parent dropdown */}
+<div className="space-y-2">
+  <Label>Unit Induk</Label>
+  <SearchableSelect
+    value={selectedParent}
+    onChange={(value) => {
+      setSelectedParent(value);
+      setSelectedChild('');
+    }}
+    options={parents.map((u) => ({
+      value: String(u.id),
+      label: u.unit_name,
+    }))}
+    placeholder="Pilih unit induk..."
+  />
+</div>
 
-            {targetType === 'cabang' && (
-              <div className="space-y-2">
-                <Label>Jenis Kantor Cabang</Label>
-                <Select
-                  onValueChange={(value) => setBranchType(value)}
-                  value={branchType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih cabang..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cabangUnits.map((u) => (
-                      <SelectItem key={u.id} value={String(u.id)}>
-                        {u.unit_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}  
+{/* Child dropdown */}
+{children.length > 0 && (
+  <div className="space-y-2">
+    <Label>Unit Anak</Label>
+    <SearchableSelect
+      value={selectedChild}
+      onChange={(value) => setSelectedChild(value)}
+      options={children.map((u) => ({
+        value: String(u.id),
+        label: u.unit_name,
+      }))}
+      placeholder="Pilih unit anak..."
+    />
+  </div>
+)}
+
           </div>
 
           {/* Step 2: Isi Detail Risiko */}
           {isTargetSelected && (
             <div className="space-y-4 rounded-md border p-4">
               <h4 className="font-semibold text-sm">Langkah 2: Isi Detail Risiko</h4>
+
               <div className="space-y-2">
                 <Label htmlFor="potensi-risiko">Potensi Risiko</Label>
                 <Textarea
@@ -236,11 +210,12 @@ const handleSave = async () => {
                   className="min-h-[80px]"
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="keterangan">Keterangan Tambahan (Opsional)</Label>
                 <Textarea
                   id="keterangan"
-                  placeholder="Informasi atau panduan tambahan..."
+                  placeholder="Informasi tambahan..."
                   value={keterangan}
                   onChange={(e) => setKeterangan(e.target.value)}
                   className="min-h-[60px]"

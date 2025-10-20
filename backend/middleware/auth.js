@@ -1,22 +1,25 @@
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = "access_secret_key"; // atau ambil dari process.env.JWT_SECRET
+const JWT_SECRET = "access_secret_key"; // sama dengan di server.js
 
-export function authenticateToken(req, res, next) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+export const authenticateToken = (req, res, next) => {
+  const token = req.cookies.accessToken; // ambil dari cookie
+  console.log("Cookies diterima:", req.cookies);
 
   if (!token) {
-    return res.status(401).json({ message: "Token tidak ditemukan" });
+    console.log("Tidak ada token di cookie.");
+    return res.status(401).json({ message: "Akses ditolak, token tidak ada" });
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      console.error("❌ Token invalid:", err);
-      return res.status(403).json({ message: "Token tidak valid" });
+      console.log("Token tidak valid atau kadaluarsa:", err.message);
+      return res.status(403).json({ message: "Token tidak valid atau kadaluarsa" });
     }
 
-    req.user = user; // simpan payload user ke req.user
+    console.log("🧩 Decoded JWT:", user); //DEBUG: lihat isi token yang ter-decode
+
+    req.user = user;
     next();
   });
-}
+};

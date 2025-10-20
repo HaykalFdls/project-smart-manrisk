@@ -4,13 +4,12 @@ import mysql from 'mysql2/promise';
 import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
-
 import { authenticateToken } from './middleware/auth.js';
 
 const app = express();
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:9002"], // port frontend
+    origin: ["http://localhost:9002"], // port frontend
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   })
@@ -118,6 +117,61 @@ app.get('/roles/:roleId/permissions', async (req, res) => {
   res.json(rows[0] || {});
 });
 
+// ======== ME (SESSION CHECK) ========
+app.get("/me", authenticateToken, async (req, res) => {
+  // Cegah cache di browser atau proxy (hindari 304)
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, private",
+    Pragma: "no-cache",
+    Expires: "0",
+  });
+
+  try {
+    // 🔹 Ambil data user + role + unit
+    const [rows] = await db.execute(
+      `SELECT u.*, r.role_name, un.unit_name
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       LEFT JOIN units un ON u.unit_id = un.id
+       WHERE u.id = ?`,
+      [req.user.id]
+    );
+
+    if (rows.length === 0)
+      return res.status(404).json({ message: "User tidak ditemukan" });
+
+    const user = rows[0];
+
+    // 🔹 Ambil permission berdasarkan role
+    const [permRows] = await db.execute(
+      `SELECT can_create, can_read, can_view, can_update, can_approve, can_delete, can_provision
+       FROM role_permissions WHERE role_id = ?`,
+      [user.role_id]
+    );
+
+    const permissions = permRows[0] || {};
+
+    //  Response JSON lengkap user aktif
+    res.status(200).json({
+      id: user.id,
+      user_id: user.user_id,
+      name: user.name,
+      email: user.email,
+      role_id: user.role_id,
+      role_name: user.role_name,
+      unit_id: user.unit_id,
+      unit_name: user.unit_name,
+      status: user.status,
+      permissions,
+    });
+  } catch (err) {
+    console.error("❌ Error /me:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
 // ===========================================================
 // ===================== AUTH SECTION ========================
 // ===========================================================
@@ -125,6 +179,7 @@ app.get('/roles/:roleId/permissions', async (req, res) => {
 // === LOGIN ===
 app.post("/login", async (req, res) => {
   const { user_id, password } = req.body;
+
   try {
     const [rows] = await db.execute(
       `SELECT u.*, r.role_name, un.unit_name
@@ -148,7 +203,7 @@ app.post("/login", async (req, res) => {
         [user.id, req.ip, req.get("User-Agent"), user.role_name, user.unit_name]
       );
 
-      console.warn(`[LOGIN FAIL] ${user_id} — Password salah (${new Date().toLocaleString()})`);
+      console.warn(`[LOGIN FAIL] ${user_id} — Password salah`);
       return res.status(401).json({ message: "Password salah" });
     }
 
@@ -160,7 +215,7 @@ app.post("/login", async (req, res) => {
     );
     const permissions = permRows[0] || {};
 
-    // 🔐 Generate tokens
+    //  Generate tokens
     const accessToken = jwt.sign(
       { id: user.id, role_id: user.role_id },
       JWT_SECRET,
@@ -172,10 +227,18 @@ app.post("/login", async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // Simpan refresh token di cookie
+    // === Simpan cookies aman ===
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      sameSite: "lax",   
+      secure: false,     // true jika pakai HTTPS
+      maxAge: 60 * 60 * 1000, // 1 jam
+    });
+
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      sameSite: "strict",
+      sameSite: "lax",
+      secure: false,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 hari
     });
 
@@ -186,10 +249,11 @@ app.post("/login", async (req, res) => {
       [user.id, req.ip, req.get("User-Agent"), user.role_name, user.unit_name]
     );
 
-    console.log(`[LOGIN SUCCESS] ${user_id} (${user.name}) berhasil login pada ${new Date().toLocaleString()}`);
+    console.log(`[LOGIN SUCCESS] ${user_id} (${user.name}) berhasil login`);
 
+    // Tidak perlu kirim token ke frontend
     res.json({
-      token: accessToken,
+      message: "Login success",
       user: {
         id: user.id,
         user_id: user.user_id,
@@ -211,59 +275,28 @@ app.post("/login", async (req, res) => {
 
 // ======== REFRESH TOKEN =========
 app.post("/refresh-token", async (req, res) => {
-  // Ambil refreshToken dari cookie atau body
-  const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
-  if (!refreshToken) return res.status(401).json({ message: "Refresh token tidak ada" });
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken)
+    return res.status(401).json({ message: "Refresh token tidak ada" });
 
   jwt.verify(refreshToken, REFRESH_SECRET, async (err, decoded) => {
     if (err) return res.status(403).json({ message: "Refresh token tidak valid" });
 
-    // Buat token baru
-    const newToken = jwt.sign(
+    const newAccessToken = jwt.sign(
       { id: decoded.id, role_id: decoded.role_id },
       JWT_SECRET,
       { expiresIn: "1h" }
     );
 
-    // Ambil ulang data user (agar data permissions tetap update)
-    const [rows] = await db.execute(`
-      SELECT u.*, r.role_name, un.unit_name,
-        rp.can_create, rp.can_read, rp.can_view, rp.can_update,
-        rp.can_approve, rp.can_delete, rp.can_provision
-      FROM users u
-      LEFT JOIN roles r ON u.role_id = r.id
-      LEFT JOIN units un ON u.unit_id = un.id
-      LEFT JOIN role_permissions rp ON r.id = rp.role_id
-      WHERE u.id = ?
-    `, [decoded.id]);
-
-    if (!rows.length) return res.status(404).json({ message: "User tidak ditemukan" });
-
-    const user = rows[0];
-
-    res.json({
-      token: newToken,
-      user: {
-        id: user.id,
-        user_id: user.user_id,
-        name: user.name,
-        email: user.email,
-        role_id: user.role_id,
-        role_name: user.role_name,
-        unit_id: user.unit_id,
-        unit_name: user.unit_name,
-        status: user.status,
-        permissions: {
-          can_create: !!user.can_create,
-          can_read: !!user.can_read,
-          can_view: !!user.can_view,
-          can_update: !!user.can_update,
-          can_approve: !!user.can_approve,
-          can_delete: !!user.can_delete,
-          can_provision: !!user.can_provision,
-        },
-      },
+    // Set ulang accessToken ke cookie
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false,
+      maxAge: 60 * 60 * 1000,
     });
+
+    res.json({ message: "Token diperbarui" });
   });
 });
 
@@ -280,8 +313,9 @@ app.post("/logout", authenticateToken, async (req, res) => {
       [userId]
     );
 
+    res.clearCookie("accessToken");
     res.clearCookie("refreshToken");
-    console.log(`[LOGOUT] User ID ${userId} logout pada ${new Date().toLocaleString()}`);
+    console.log(`[LOGOUT] User ID ${userId} logout`);
     res.json({ message: "Logout berhasil" });
   } catch (err) {
     console.error("Logout error:", err);
@@ -317,7 +351,6 @@ app.get("/user-logins", authenticateToken, async (req, res) => {
     res.status(500).json({ message: "Gagal mengambil data user_logins" });
   }
 });
-
 
 // ======== PROTECTED PROFILE =========
 app.get("/profile", authenticateToken, async (req, res) => {
@@ -439,19 +472,41 @@ app.delete('/risks/:id', async (req, res) => {
 
 
 // ======== UNITS ===========
+// GET semua units atau filter berdasarkan parent_id
 app.get('/units', async (req, res) => {
   try {
-    const [rows] = await db.execute(`
-      SELECT id, unit_name, unit_type 
+    const { parent_id } = req.query;
+    let query = `
+      SELECT id, unit_name, unit_type, parent_id
       FROM units
-      ORDER BY unit_type, unit_name
-    `);
+    `;
+    const params = [];
+
+    if (parent_id === 'null') {
+      query += ` WHERE parent_id IS NULL`;
+    } else if (parent_id) {
+      query += ` WHERE parent_id = ?`;
+      params.push(parent_id);
+    }
+
+    query += `
+      ORDER BY 
+        CASE 
+          WHEN unit_name = 'Kantor Pusat' THEN 0
+          ELSE 1
+        END,
+        unit_name
+    `;
+
+
+    const [rows] = await db.execute(query, params);
     res.json(rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Gagal ambil data units' });
   }
 });
+
 
 // GET detail unit by ID
 app.get("/units/:id", async (req, res) => {
@@ -474,68 +529,82 @@ app.get("/units/:id", async (req, res) => {
 // ======== RCSA MASTER =============
 
 // Ambil master risiko untuk unit tertentu
-app.get('/rcsa/master/:unitId', async (req, res) => {
-  const { unitId } = req.params;
+app.get("/rcsa/master/:unitId?", authenticateToken, async (req, res) => {
   try {
-    const [rows] = await db.execute(`
-      SELECT m.id, m.rcsa_name, m.description
-      FROM rcsa_master m
-      JOIN rcsa_master_units mu ON m.id = mu.rcsa_master_id
-      WHERE mu.unit_id = ?
-    `, [unitId]);
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Gagal ambil data master RCSA' });
-  }
-});
+    const { unitId } = req.params;
+    const user = req.user || {};
+    const role = user.role || "user";
+    const userUnitId = user.unit_id || null;
 
-// ----------- CRUD MASTER RCSA ------------
-// Ambil semua master RCSA (opsional: filter unit pakai query)
-app.get("/master-rcsa", async (req, res) => {
-  const { unit_id } = req.query;
-
-  try {
     let query = `
       SELECT 
-        m.id,
-        m.rcsa_name,
+        m.id, 
+        m.rcsa_name, 
         m.description,
-        u.unit_name,
-        u.unit_type
+        mu.unit_id,
+        u.unit_name
       FROM rcsa_master m
       LEFT JOIN rcsa_master_units mu ON m.id = mu.rcsa_master_id
       LEFT JOIN units u ON mu.unit_id = u.id
     `;
+
     const params = [];
 
-    if (unit_id) {
+    if (role !== "admin") {
+      if (userUnitId !== null) {
+        query += " WHERE mu.unit_id = ?";
+        params.push(userUnitId);
+      }
+    } else if (unitId) {
       query += " WHERE mu.unit_id = ?";
-      params.push(unit_id);
+      params.push(unitId);
     }
 
-    const [rows] = await db.query(query, params);
+    console.log("SQL Query:", query);
+    console.log("Params:", params);
+
+    const [rows] = await db.execute(query, params);
     res.json(rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Gagal mengambil master RCSA" });
+    console.error("❌ Error ambil master RCSA:", err);
+    res.status(500).json({ message: "Gagal ambil data master RCSA" });
   }
 });
 
-// Tmambah Data Master RCSA
-app.post("/master-rcsa", async (req, res) => {
+
+
+// app.get("/master-rcsa", authenticateToken, async (req, res) => {
+//   try {
+//     console.log("GET /master-rcsa dipanggil oleh:", req.user);
+//     const [rows] = await db.execute(`
+//       SELECT 
+//         m.id, m.rcsa_name, m.description, 
+//         mu.unit_id, u.unit_name
+//       FROM rcsa_master m
+//       JOIN rcsa_master_units mu ON m.id = mu.rcsa_master_id
+//       JOIN units u ON mu.unit_id = u.id
+//     `);
+//     console.log("Query hasil:", rows);
+//     res.json(rows);
+//   } catch (err) {
+//     console.error("Error ambil master RCSA:", err);
+//     res.status(500).json({ message: "Gagal ambil data master RCSA" });
+//   }
+// });
+
+
+// ----------- CRUD MASTER RCSA ------------
+//  Tambah Data Master RCSA
+app.post("/master-rcsa", authenticateToken, async (req, res) => {
   const { rcsa_name, description, unit_id } = req.body;
-  const created_by = req.headers["authorization-user"]; // ambil dari header
+  const user = req.user; // data user dari token
+  const created_by = user.id;
 
   if (!rcsa_name || !unit_id) {
     return res.status(400).json({ message: "rcsa_name dan unit_id wajib diisi" });
   }
-  if (!created_by) {
-    return res.status(400).json({ message: "created_by wajib dikirim" });
-  }
 
   try {
-    // Insert ke rcsa_master
     const [result] = await db.execute(
       "INSERT INTO rcsa_master (rcsa_name, description, created_by) VALUES (?, ?, ?)",
       [rcsa_name, description || null, created_by]
@@ -543,7 +612,6 @@ app.post("/master-rcsa", async (req, res) => {
 
     const masterId = result.insertId;
 
-    // Hubungkan dengan unit
     await db.execute(
       "INSERT INTO rcsa_master_units (rcsa_master_id, unit_id) VALUES (?, ?)",
       [masterId, unit_id]
@@ -562,19 +630,23 @@ app.post("/master-rcsa", async (req, res) => {
   }
 });
 
-// Update master RCSA
-app.put("/rcsa/master/:id", async (req, res) => {
+//  Update Master RCSA
+app.put("/rcsa/master/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { rcsa_name, description, unit_id } = req.body;
 
   try {
-    // Update hanya nama & deskripsi
+    // (Opsional) validasi kepemilikan
+    // const [check] = await db.execute("SELECT created_by FROM rcsa_master WHERE id=?", [id]);
+    // if (!check.length || check[0].created_by !== req.user.id) {
+    //   return res.status(403).json({ message: "Anda tidak memiliki izin untuk mengubah data ini" });
+    // }
+
     await db.execute(
       "UPDATE rcsa_master SET rcsa_name=?, description=? WHERE id=?",
       [rcsa_name, description || null, id]
     );
 
-    // 🔹 Update unit hanya kalau unit_id valid
     if (unit_id && !isNaN(unit_id)) {
       await db.execute(
         "UPDATE rcsa_master_units SET unit_id=? WHERE rcsa_master_id=?",
@@ -582,33 +654,43 @@ app.put("/rcsa/master/:id", async (req, res) => {
       );
     }
 
-    res.json({ message: "Master RCSA updated successfully" });
+    res.json({ message: "Master RCSA berhasil diperbarui" });
   } catch (err) {
     console.error("Error updating RCSA Master:", err);
-    res.status(500).json({ error: "Gagal update Master RCSA" });
+    res.status(500).json({ message: "Gagal update Master RCSA" });
   }
 });
 
-
-// Hapus master RCSA
-app.delete('/master-rcsa/:id', async (req, res) => {
+//  Hapus Master RCSA
+app.delete("/master-rcsa/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
+
   try {
-    await db.execute('DELETE FROM rcsa_master_units WHERE rcsa_master_id=?', [id]);
-    await db.execute('DELETE FROM rcsa_master WHERE id=?', [id]);
-    res.json({ message: 'Master RCSA berhasil dihapus' });
+    // (Opsional) validasi kepemilikan
+    // const [check] = await db.execute("SELECT created_by FROM rcsa_master WHERE id=?", [id]);
+    // if (!check.length || check[0].created_by !== req.user.id) {
+    //   return res.status(403).json({ message: "Anda tidak memiliki izin untuk menghapus data ini" });
+    // }
+
+    await db.execute("DELETE FROM rcsa_master_units WHERE rcsa_master_id=?", [id]);
+    await db.execute("DELETE FROM rcsa_master WHERE id=?", [id]);
+
+    res.json({ message: "Master RCSA berhasil dihapus" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Gagal hapus master RCSA' });
+    console.error("❌ Error hapus Master RCSA:", err);
+    res.status(500).json({ message: "Gagal hapus master RCSA" });
   }
 });
+
 
 // ======== RCSA ASSESSMENT =============
 
 // Ambil semua assessment submitted (filter by user/unit/status)
-app.get("/rcsa/assessment", async (req, res) => {
+app.get("/rcsa/assessment", authenticateToken, async (req, res) => {
   try {
-    const { created_by, unit_id } = req.query;
+    const { unit_id } = req.query;
+    const user = req.user;
+    const created_by = user.id;
 
     let sql = `
       SELECT 
@@ -622,10 +704,6 @@ app.get("/rcsa/assessment", async (req, res) => {
     `;
     const params = [];
 
-    if (created_by) {
-      sql += " AND ra.created_by = ?";
-      params.push(created_by);
-    }
     if (unit_id) {
       sql += " AND ra.unit_id = ?";
       params.push(unit_id);
@@ -633,9 +711,10 @@ app.get("/rcsa/assessment", async (req, res) => {
 
     sql += " ORDER BY ra.id ASC";
 
-    // gunakan db.execute bukan pool
     const [rows] = await db.execute(sql, params);
+    console.log("RCSA Rows:", rows); // cek markicek
     res.json(rows);
+    console.log(`User ${user.id} (${user.email}) mengambil data assessment`);
   } catch (err) {
     console.error("GET /rcsa/assessment error:", err);
     res.status(500).json({ error: err.message });

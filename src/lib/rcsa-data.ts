@@ -6,9 +6,9 @@ import { toSnakeCase } from "@/lib/utils";
 
 //=================== types =====================
 export type RCSAData = {
-  id?: number;               // id assessment
+  id?: number;               
   no: number;
-  rcsa_master_id?: number;   // link ke master
+  rcsa_master_id?: number;   
   unit_id?: number;
   unit_name?: string;
   unit_type?: string;
@@ -129,7 +129,8 @@ const API_BASE = "http://localhost:5000";
   ): Promise<RCSAData[]> => {
     try {
       const res = await fetch(
-        `${API_BASE}/rcsa/assessment/drafts?created_by=${userId}&unit_id=${unitId}&exclude_submitted=true`
+        `${API_BASE}/rcsa/assessment/drafts?created_by=${userId}&unit_id=${unitId}&exclude_submitted=true`,
+        { credentials: "include" }
       );
       if (!res.ok) {
         const text = await res.text();
@@ -139,8 +140,10 @@ const API_BASE = "http://localhost:5000";
 
       const rows = await res.json();
 
-      // 🔹 ambil info unit
-      const unitRes = await fetch(`${API_BASE}/units/${unitId}`);
+      //  ambil info unit
+      const unitRes = await fetch(`${API_BASE}/units/${unitId}`,
+        { credentials: "include" }
+      );
       const unit = await unitRes.json();
       console.log("DEBUG unit:", unit);
 
@@ -168,8 +171,8 @@ const API_BASE = "http://localhost:5000";
             created_by: userId,
           },
           i + 1,
-          unit.unit_name,
-          unit.unit_type
+          r.unit_name,
+          r.unit_type
         )
       );
     } catch (err) {
@@ -190,7 +193,7 @@ export const getRcsaSubmitted = async (
     if (unitId) params.push(`unit_id=${unitId}`);
     if (params.length > 0) url += `?${params.join("&")}`;
 
-    const res = await fetch(url);
+    const res = await fetch(url, { credentials: "include" });
     if (!res.ok) {
       const text = await res.text();
       console.error("Fetch submitted error:", res.status, text);
@@ -219,7 +222,9 @@ export const getRcsaSubmitted = async (
           status: r.status,
           created_by: r.created_by,
         },
-        i + 1
+        i + 1,
+        r.unit_name,
+        r.unit_type
       )
     );
   } catch (err) {
@@ -265,6 +270,7 @@ export async function saveRcsaAssessment(data: any) {
     {
       method: data.id ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(finalPayload),
     }
   );
@@ -283,7 +289,10 @@ export async function saveRcsaAssessment(data: any) {
 // Submit assessment (ubah status ke submitted)
 export const submitRcsaAssessment = async (id: number) => {
   try {
-    const res = await fetch(`${API_BASE}/rcsa/assessment/${id}/submit`, { method: "PUT" });
+    const res = await fetch(`${API_BASE}/rcsa/assessment/${id}/submit`, { 
+      method: "PUT",
+      credentials: "include",
+    });
     if (!res.ok) throw new Error("Gagal submit assessment");
     return await res.json();
   } catch (err) {
@@ -295,19 +304,19 @@ export const submitRcsaAssessment = async (id: number) => {
 // Ambil semua submissions (untuk admin)
 export const getAllRcsaSubmissions = async (): Promise<RCSAData[]> => {
   try {
-    const res = await fetch(`${API_BASE}/rcsa/assessment`);
+    const res = await fetch(`${API_BASE}/rcsa/assessment`,
+      { credentials: "include" });
     if (!res.ok) throw new Error("Gagal ambil submissions");
 
     const data = await res.json();
 
     
     return Array.isArray(data)
-      ? data.sort(
-          (a, b) =>
-            new Date(b.submittedAt || b.created_at).getTime() -
-            new Date(a.submittedAt || a.created_at).getTime()
-        )
-      : [];
+  ? data.map((r: any, i: number) =>
+      mapPayloadToRCSAData(r, i + 1, r.unit_name, r.unit_type)
+    )
+  : [];
+
   } catch (err) {
     console.error("getAllRcsaSubmissions error:", err);
     return [];
