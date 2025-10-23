@@ -28,6 +28,19 @@ export type RCSAData = {
   status?: "draft" | "submitted" | "reviewed";
 };
 
+// --- HELPER UNTUK KALKULASI LEVEL (Penting!) ---
+// Level DB: 'Rendah', 'Sedang', 'Tinggi', 'Sangat Tinggi'
+const getLevelLabel = (besaran: number | null | undefined): string | null => {
+if (besaran === null || besaran === undefined) {
+  return null;
+  }
+    // Logika penentuan level sesuai yang digunakan di frontend (Rcsapage.tsx)
+    if (besaran >= 20) return "Sangat Tinggi";
+    if (besaran >= 12) return "Tinggi";
+    if (besaran >= 5) return "Sedang"; 
+  return "Rendah";
+};
+
 // ================= MAPPERS =================
 
 export function mapMasterToRCSA(master: MasterRCSA, no: number, userId: number, 
@@ -56,34 +69,53 @@ export function mapMasterToRCSA(master: MasterRCSA, no: number, userId: number,
   };
 }
 
-export function mapToAssessment(row: any, userId: number, unitId: number) {
+// mapToAssessment DENGAN PERHITUNGAN LENGKAP
+export function mapToAssessment(row: RCSAData, userId: number, unitId: number) {
+  // Hitung Nilai & Level Inheren
+  const nilaiInheren = 
+    row.dampakInheren && row.frekuensiInheren 
+      ? row.dampakInheren * row.frekuensiInheren 
+      : null;
+  const levelInheren = getLevelLabel(nilaiInheren);
+  
+  // Hitung Nilai & Level Residual
+  const nilaiResidual = 
+    row.dampakResidual && row.kemungkinanResidual 
+      ? row.dampakResidual * row.kemungkinanResidual 
+      : null;
+  const levelResidual = getLevelLabel(nilaiResidual);
   return {
     id: row.id,
     rcsa_master_id: row.rcsa_master_id ?? row.rcsaMasterId,
     unit_id: unitId,
     created_by: userId,
-
     potensi_risiko: row.potensiRisiko ?? "",
     jenis_risiko: row.jenisRisiko ?? null,
     penyebab_risiko: row.penyebabRisiko ?? null,
-
     keterangan_admin: row.keteranganAdmin ?? null,
     pengendalian: row.pengendalian ?? null,
+    
+    // Data Inheren
     dampak_inheren: row.dampakInheren ?? null,
     frekuensi_inheren: row.frekuensiInheren ?? null,
+    nilai_inheren: nilaiInheren, // **KOLOM BARU TERISI**
+    level_inheren: levelInheren, // **KOLOM BARU TERISI**
+    // Data Residual
     dampak_residual: row.dampakResidual ?? null,
     kemungkinan_residual: row.kemungkinanResidual ?? null,
-    penilaian_kontrol: row.penilaianKontrol ?? null,
-
+    nilai_residual: nilaiResidual, // **KOLOM BARU TERISI**
+    level_residual: levelResidual, // **KOLOM BARU TERISI**
+    penilaian_kontrol: row.penilaianKontrol ?? null, // Dipetakan dari 'penilaianKontrol'
     action_plan: row.actionPlan ?? null,
     pic: row.pic ?? null,
-    status: "draft",
+    keterangan_user: row.keteranganUser ?? null, // **KOLOM BARU TERISI**
+    status: row.status || "draft",
   };
 }
 
 
 export function mapPayloadToRCSAData(
-  payload: RCSA_AssessmentPayload,
+  payload: RCSA_AssessmentPayload & { keterangan_user?: string }, // Tambahkan keterangan_user di payload
   no: number,
   unitName?: string,
   unitType?: string
@@ -94,26 +126,21 @@ export function mapPayloadToRCSAData(
     rcsa_master_id: payload.rcsa_master_id,
     unit_id: payload.unit_id,
     unit_name: unitName,
-    unit_type: unitType,
-
+    unit_type: unitType, 
     potensiRisiko: payload.potensi_risiko && payload.potensi_risiko.trim() !== "" ? payload.potensi_risiko
     : "Tidak ada potensi risiko",
-    jenisRisiko: payload.jenis_risiko ?? null,        
-    penyebabRisiko: payload.penyebab_risiko ?? null, 
-
+    jenisRisiko: payload.jenis_risiko ?? null,        
+    penyebabRisiko: payload.penyebab_risiko ?? null,  
     dampakInheren: payload.dampak_inheren ?? null,
     frekuensiInheren: payload.frekuensi_inheren ?? null,
-    pengendalian: payload.pengendalian ?? null,
-
+    pengendalian: payload.pengendalian ?? null, 
     dampakResidual: payload.dampak_residual ?? null,
     kemungkinanResidual: payload.kemungkinan_residual ?? null,
-    penilaianKontrol: payload.penilaian_kontrol ?? null,
-
+    penilaianKontrol: payload.penilaian_kontrol ?? null, 
     actionPlan: payload.action_plan ?? null,
-    pic: payload.pic ?? null,
-
+    pic: payload.pic ?? null, 
     keteranganAdmin: payload.keterangan_admin ?? null,
-    keteranganUser: null, // backend belum support
+    keteranganUser: payload.keterangan_user ?? null, // **UPDATE: Mapping dari payload DB**
     status: payload.status as "draft" | "submitted" | "reviewed",
   };
 }

@@ -21,16 +21,20 @@ interface Option {
 
 interface SearchableSelectProps {
   value: string
-  onChange: (value: string) => void
+  onValueChange: (value: string) => void
   options: Option[]
   placeholder?: string
+  disabled?: boolean
+  className?: string
 }
 
 export function SearchableSelect({
   value,
-  onChange,
+  onValueChange,
   options,
   placeholder = "Pilih...",
+  disabled = false,
+  className,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false)
   const selected = options.find((opt) => opt.value === value)
@@ -41,8 +45,9 @@ export function SearchableSelect({
         <Button
           variant="outline"
           role="combobox"
+          disabled={disabled}
           aria-expanded={open}
-          className="w-full justify-between"
+          className={cn("w-full justify-between", className)}
         >
           {selected ? selected.label : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -60,7 +65,7 @@ export function SearchableSelect({
                   key={opt.value}
                   value={opt.label}
                   onSelect={() => {
-                    onChange(opt.value)
+                    onValueChange(opt.value)
                     setOpen(false)
                   }}
                 >

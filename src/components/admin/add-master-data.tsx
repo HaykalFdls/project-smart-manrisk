@@ -161,11 +161,12 @@ export function AddMasterDataModal({
             <h4 className="font-semibold text-sm">Langkah 1: Pilih Unit</h4>
 
             {/* Parent dropdown */}
+{/* Parent dropdown */}
 <div className="space-y-2">
   <Label>Unit Induk</Label>
   <SearchableSelect
     value={selectedParent}
-    onChange={(value) => {
+    onValueChange={(value) => {     // 🔄 Ganti dari onChange
       setSelectedParent(value);
       setSelectedChild('');
     }}
@@ -183,7 +184,7 @@ export function AddMasterDataModal({
     <Label>Unit Anak</Label>
     <SearchableSelect
       value={selectedChild}
-      onChange={(value) => setSelectedChild(value)}
+      onValueChange={(value) => setSelectedChild(value)}  // 🔄 Ganti dari onChange
       options={children.map((u) => ({
         value: String(u.id),
         label: u.unit_name,
@@ -192,6 +193,7 @@ export function AddMasterDataModal({
     />
   </div>
 )}
+
 
           </div>
 

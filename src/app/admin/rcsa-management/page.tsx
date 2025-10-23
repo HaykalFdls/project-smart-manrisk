@@ -9,6 +9,7 @@ import { Save, Trash2, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AddMasterDataModal } from "@/components/admin/add-master-data";
 import { type RCSAData } from "@/lib/rcsa-data";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Select,
   SelectContent,
@@ -168,19 +169,13 @@ export default function RcsaManagementPage() {
 
         {/* Dropdown pilih unit */}
         <div className="mb-6 w-72">
-          <Label>Unit</Label>
-          <Select onValueChange={setSelectedUnit} value={selectedUnit}>
-            <SelectTrigger>
-              <SelectValue placeholder="Pilih unit/divisi..." />
-            </SelectTrigger>
-            <SelectContent>
-              {unitOptions.map((unit) => (
-                <SelectItem key={unit} value={unit}>
-                  {unit}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label> Filter Unit Kerja</Label>
+          <SearchableSelect
+            options={unitOptions.map((u) => ({ label: u, value: u }))}
+            value={selectedUnit}
+            onValueChange={setSelectedUnit}
+            placeholder="Pilih atau cari unit/divisi..."
+          />
         </div>
 
         {/* Tabel data */}
