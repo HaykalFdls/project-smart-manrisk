@@ -898,7 +898,7 @@ app.put('/rcsa/assessment/:id', async (req, res) => {
       data.status ?? 'draft',
       id
     ]);
-
+      
     res.json({ ...data, id });
   } catch (err) {
     console.error("❌ Error update assessment:", err);
@@ -906,7 +906,7 @@ app.put('/rcsa/assessment/:id', async (req, res) => {
   }
 });
 
-
+// tambah rcsa assessment
 app.post('/rcsa/assessment', async (req, res) => {
   const data = req.body;
   try {
@@ -966,6 +966,7 @@ app.post('/rcsa/assessment', async (req, res) => {
       data.pic ?? null,
       data.status ?? 'draft'
     ]);
+    console.log("📥 Data diterima dari frontend:", req.body);
 
     res.json({ ...data, id: result.insertId, status: data.status ?? 'draft' });
   } catch (err) {
@@ -980,6 +981,8 @@ app.put('/rcsa/assessment/:id/submit', async (req, res) => {
   const { id } = req.params;
   try {
     await db.execute(`UPDATE rcsa_assessment SET status='submitted' WHERE id=?`, [id]);
+      console.log("📥 Data diterima dari frontend:", req.body);
+
     res.json({ message: 'Assessment berhasil di-submit' });
   } catch (err) {
     console.error(err);
