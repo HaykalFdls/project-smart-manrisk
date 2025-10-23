@@ -45,333 +45,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/context/auth-context";
 import { toCamelCase } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { RiskTable } from "@/components/rcsa/RcsaTable";
+
+const UNIT_API_URL = "http://localhost:5000/units";
 
 type RCSADataWithCalculations = RCSAData & {
   besaranInheren: number | null;
   besaranResidual: number | null;
 };
-
-// Pilihan jenis risiko
-const JENIS_RISIKO_OPTIONS = [
-  "Risiko Kredit",
-  "Risiko Pasar",
-  "Risiko Likuiditas",
-  "Risiko Operasional",
-  "Risiko Hukum",
-  "Risiko Reputasi",
-  "Risiko Strategis",
-  "Risiko Kepatuhan",
-  "Risiko Imbal Hasil",
-  "Risiko Investasi",
-] as const;
-
-// Batasan nilai Dampak/Frekuensi/Kemungkinan
-const MIN_SCORE = 1;
-const MAX_SCORE = 5;
-const UNIT_API_URL = "http://localhost:5000/units";
-
-// --- UTILITAS/HELPER FUNCTIONS ---
-const getLevelFromBesaran = (besaran: number | null | undefined) => {
-  if (besaran === null || besaran === undefined) {
-    return { label: "-", className: "bg-muted/40 text-muted-foreground" };
-  }
-  if (besaran >= 20) return { label: "Sangat Tinggi", className: "bg-red-700 text-white" };
-  if (besaran >= 12) return { label: "Tinggi", className: "bg-red-500 text-white" };
-  if (besaran >= 5) return { label: "Menengah", className: "bg-yellow-400 text-black" };
-  return { label: "Rendah", className: "bg-green-500 text-white" };
-};
-
-const parseTargetAndDescription = (description: string | null) => {
-  if (!description) return { target: null, cleanDescription: null };
-
-  const lines = description.split("\n");
-  const targetLine = lines.find((line) => line.startsWith("Target: "));
-
-  if (targetLine) {
-    const target = targetLine.replace("Target: ", "").trim();
-    const cleanDescription = lines
-      .filter((line) => !line.startsWith("Target: "))
-      .join("\n")
-      .trim();
-    return { target: target || null, cleanDescription: cleanDescription || null };
-  }
-  return { target: null, cleanDescription: description };
-};
-
-// --- KOMPONEN KECIL (MICRO-COMPONENTS) ---
-const ScoreInput: FC<{
-  label: string;
-  value: number | null;
-  onChange: (value: number | null) => void;
-}> = ({ label, value, onChange }) => {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = parseInt(e.target.value) || null;
-    if (val !== null) {
-      if (val < MIN_SCORE) val = MIN_SCORE;
-      if (val > MAX_SCORE) val = MAX_SCORE;
-    }
-    onChange(val);
-  };
-
-  return (
-    <div>
-      <Label>{label} ({MIN_SCORE}-{MAX_SCORE})</Label>
-      <Input
-        type="number"
-        min={MIN_SCORE}
-        max={MAX_SCORE}
-        value={value || ""}
-        onChange={handleChange}
-        className="text-center"
-      />
-    </div>
-  );
-};
-
-const CalculatedValue: FC<{
-  label: string;
-  value: string | number | null;
-  className?: string;
-}> = ({ label, value, className = "" }) => (
-  <div className="space-y-1">
-    <p className="text-sm font-medium text-muted-foreground">{label}</p>
-    <div
-      className={`flex h-10 w-full items-center justify-center rounded-lg border border-input bg-muted/50 px-3 py-2 text-sm font-bold shadow-sm ${className}`}
-    >
-      {value || "-"}
-    </div>
-  </div>
-);
-
-const LevelBadge: FC<{ besaran: number | null | undefined }> = ({ besaran }) => {
-  const level = getLevelFromBesaran(besaran);
-  return (
-    <div className="space-y-1">
-      <p className="text-sm font-medium text-muted-foreground">Level</p>
-      <div className="flex h-10 items-center justify-center rounded-lg border border-input bg-muted/40 shadow-sm">
-        <span className={`px-3 py-1 rounded text-xs font-semibold ${level.className}`}>
-          {level.label}
-        </span>
-      </div>
-    </div>
-  );
-};
-
-// --- KOMPONEN UTAMA (RiskCard Component) ---
-
-type RiskCardProps = {
-  row: RCSADataWithCalculations;
-  index: number;
-  onChange: (index: number, field: keyof Omit<RCSAData, "no">, value: any) => void;
-  // Prop baru untuk pengiriman individual
-  onIndividualSubmit: (riskId: number | string) => void;
-};
-
-const RiskCard: FC<RiskCardProps> = memo(({ row, index, onChange, onIndividualSubmit }) => {
-  const { cleanDescription } = parseTargetAndDescription(row.keteranganAdmin);
-  const canSubmit = !!row.id; // Hanya bisa submit jika sudah ada ID (sudah tersimpan)
-
-  const handleScoreChange = useCallback(
-    (field: keyof Omit<RCSAData, "no">, value: number | null) => {
-      onChange(index, field, value);
-    },
-    [index, onChange]
-  );
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3 }}>
-      <Card key={row.id ?? index} className="shadow-xl border-2 border-blue-200 rounded-2xl">
-        <CardHeader className="pb-4 bg-blue-50/70 rounded-t-2xl">
-          <div className="flex flex-col gap-1">
-            <CardTitle className="text-xl font-bold text-blue-800">
-              {row.no}. Potensi Risiko
-            </CardTitle>
-            <CardDescription className="text-base text-gray-700 leading-snug">
-              {row.potensiRisiko}
-            </CardDescription>
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-6 pt-6">
-          {/* Jenis & Penyebab */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor={`jenisRisiko-${index}`}>Jenis Risiko</Label>
-              <Select
-                value={row.jenisRisiko || ""}
-                onValueChange={(value) => onChange(index, "jenisRisiko", value)}
-              >
-                <SelectTrigger id={`jenisRisiko-${index}`}>
-                  <SelectValue placeholder="Pilih jenis risiko..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {JENIS_RISIKO_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor={`penyebabRisiko-${index}`}>Penyebab Risiko</Label>
-              <Textarea
-                id={`penyebabRisiko-${index}`}
-                value={row.penyebabRisiko || ""}
-                onChange={(e) => onChange(index, "penyebabRisiko", e.target.value)}
-                placeholder="Jelaskan penyebab utama risiko..."
-                className="min-h-[50px]"
-              />
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Risiko Inheren */}
-          <div className="rounded-xl border p-4 space-y-4 bg-red-50/50">
-            <h3 className="text-lg font-semibold text-red-700">Risiko Inheren (Sebelum Pengendalian)</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <ScoreInput
-                label="Dampak"
-                value={row.dampakInheren}
-                onChange={(v) => handleScoreChange("dampakInheren", v)}
-              />
-              <ScoreInput
-                label="Frekuensi"
-                value={row.frekuensiInheren}
-                onChange={(v) => handleScoreChange("frekuensiInheren", v)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <CalculatedValue label="Besaran Inheren" value={row.besaranInheren} />
-              <LevelBadge besaran={row.besaranInheren} />
-            </div>
-          </div>
-
-          {/* Risiko Residual */}
-          <div className="rounded-xl border p-4 space-y-4 bg-green-50/50">
-            <h3 className="text-lg font-semibold text-green-700">Risiko Residual (Setelah Pengendalian)</h3>
-            <div>
-              <Label htmlFor={`pengendalian-${index}`}>
-                Pengendalian/Mitigasi Risiko yang Ada (Existing Control)
-              </Label>
-              <Textarea
-                id={`pengendalian-${index}`}
-                value={row.pengendalian || ""}
-                onChange={(e) => onChange(index, "pengendalian", e.target.value)}
-                placeholder="Jelaskan pengendalian yang sudah ada..."
-              />
-            </div>
-
-            <Separator />
-
-            <div className="grid grid-cols-2 gap-4">
-              <ScoreInput
-                label="Dampak"
-                value={row.dampakResidual}
-                onChange={(v) => handleScoreChange("dampakResidual", v)}
-              />
-              <ScoreInput
-                label="Kemungkinan"
-                value={row.kemungkinanResidual}
-                onChange={(v) => handleScoreChange("kemungkinanResidual", v)}
-              />
-
-              <CalculatedValue label="Besaran Residual" value={row.besaranResidual} />
-              <LevelBadge besaran={row.besaranResidual} />
-            </div>
-          </div>
-
-          {/* Action Plan & PIC */}
-          <div>
-            <Label htmlFor={`actionPlan-${index}`}>Action Plan/Mitigasi Lanjutan</Label>
-            <Textarea
-              id={`actionPlan-${index}`}
-              value={row.actionPlan || ""}
-              onChange={(e) => onChange(index, "actionPlan", e.target.value)}
-              placeholder="Rencana tindakan tambahan untuk mengurangi risiko..."
-              className="min-h-[50px]"
-            />
-          </div>
-          <div>
-            <Label htmlFor={`pic-${index}`}>Person In Charge (PIC)</Label>
-            <Input
-              id={`pic-${index}`}
-              value={row.pic || ""}
-              onChange={(e) => onChange(index, "pic", e.target.value)}
-              placeholder="Nama atau Jabatan PIC"
-            />
-          </div>
-
-          <Separator />
-
-          <div>
-            <Label htmlFor={`keteranganUser-${index}`}>Keterangan (Opsional)</Label>
-            <Textarea
-              id={`keteranganUser-${index}`}
-              placeholder="Tambahkan catatan atau informasi tambahan di sini..."
-              value={row.keteranganUser || ""}
-              onChange={(e) => onChange(index, "keteranganUser", e.target.value)}
-              className="min-h-[60px]"
-            />
-          </div>
-        </CardContent>
-
-        {/* CardFooter untuk Tombol Kirim Risiko Ini dan Keterangan Admin */}
-        <CardFooter className="pt-4 pb-6 flex justify-between items-center">
-          {cleanDescription && (
-            <p className="text-xs text-muted-foreground max-w-sm">
-              <strong className="text-sm text-foreground">Keterangan dari Admin:</strong>{" "}
-              {cleanDescription}
-            </p>
-          )}
-
-          <div className="flex items-center gap-2 ml-auto">
-            {!canSubmit && (
-              <span className="text-xs text-red-500">Simpan draf untuk mengaktifkan kirim</span>
-            )}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button 
-                  variant="default"
-                  className="bg-green-600 hover:bg-green-700 transition-colors"
-                  disabled={!canSubmit} 
-                >
-                  <Send className="mr-2 h-4 w-4" /> Kirim Risiko Ini
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Konfirmasi Pengiriman Risiko Individual</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Anda yakin ingin mengirim {row.no}. {row.potensiRisiko} ke admin? 
-                    Setelah dikirim, risiko ini akan **hilang** dari daftar RCSA Anda.
-                    <br/><br/>
-                    **PENTING: Pastikan Anda telah menekan tombol "Simpan Draf" untuk menyimpan data terbaru sebelum mengirim.**
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Batal</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={() => onIndividualSubmit(row.id!)}
-                    disabled={!canSubmit}
-                  >
-                    Ya, Kirim Sekarang
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </CardFooter>
-      </Card>
-    </motion.div>
-  );
-});
-
-// --- KOMPONEN HALAMAN UTAMA (Rcsapage) ---
 
 export default function Rcsapage() {
   const { toast } = useToast();
@@ -465,7 +146,6 @@ export default function Rcsapage() {
   );
 
   // --- HANDLER AKSI (Save, Submit All, Submit Individual) ---
-
   // Simpan draf (Semua data disimpan, bukan hanya yang aktif)
   const handleSave = async () => {
     if (!user) return;
@@ -567,7 +247,6 @@ export default function Rcsapage() {
   };
 
   // --- RENDER ---
-
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center p-8 min-h-screen">
@@ -600,10 +279,8 @@ export default function Rcsapage() {
           {/* Tombol Kirim Semua (Global Submit) */}
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button
-                disabled={isDataEmpty}
-                className="bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-              >
+              <Button disabled={isDataEmpty}
+                className="bg-blue-600 hover:bg-blue-700 text-white transition-colors">
                 <Send className="mr-2 h-4 w-4" /> Kirim Semua ({totalRisks} Item)
               </Button>
             </AlertDialogTrigger>
@@ -655,13 +332,17 @@ export default function Rcsapage() {
 
         {/* Render hanya satu kartu risiko aktif, passing fungsi submit individual */}
         {activeRisk && (
-          <RiskCard 
-            key={activeRisk.id ?? activeRiskIndex} 
-            row={activeRisk} 
-            index={activeRiskIndex} 
+          // <RiskCard 
+          //   key={activeRisk.id ?? activeRiskIndex} 
+          //   row={activeRisk} 
+          //   index={activeRiskIndex} 
+          //   onChange={handleInputChange} 
+          //   onIndividualSubmit={handleIndividualSubmit} // Prop untuk Kirim Satu per Satu
+          // />
+          <RiskTable
+            data={data}
             onChange={handleInputChange} 
-            onIndividualSubmit={handleIndividualSubmit} // Prop untuk Kirim Satu per Satu
-          />
+            onIndividualSubmit={handleIndividualSubmit} />
         )}
       </div>
       
