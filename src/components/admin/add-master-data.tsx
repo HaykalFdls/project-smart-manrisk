@@ -166,7 +166,7 @@ export function AddMasterDataModal({
   <Label>Unit Induk</Label>
   <SearchableSelect
     value={selectedParent}
-    onValueChange={(value) => {     // 🔄 Ganti dari onChange
+    onValueChange={(value) => {     
       setSelectedParent(value);
       setSelectedChild('');
     }}

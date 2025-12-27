@@ -1,70 +1,75 @@
 "use client";
 
+import { useAuth } from "@/context/auth-context";
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { fetchRisks, updateRisk } from "@/lib/risk-register";
+import { RiskRegisterTable } from "@/components/riskregister/RiskRegisterTable";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RefreshCw, CheckCircle, FileDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, FileDown } from "lucide-react";
 
-export type RiskReportData = {
-  id: number;
-  potensiRisiko: string;
-  keteranganAdmin?: string | null;
-  unit_id?: number;
-  unit_name?: string;
-  approved?: boolean; // tanda sudah di-approve
-};
-
-export default function RiskReportPage() {
+export default function RiskRegisterPage() {
+  const { fetchWithAuth } = useAuth();
   const { toast } = useToast();
-  const [data, setData] = useState<RiskReportData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/risks");
-        const json = await res.json();
-        setData(json);
-      } catch (err) {
-        console.error(err);
-        toast({ title: "Error", description: "Gagal memuat data risiko" });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [toast]);
-
-  const handleApprove = async (risk: RiskReportData) => {
+  // Ambil data risiko dari API
+  const loadData = async () => {
     try {
-      // Simpan ke tabel approved_risks
-      await fetch("http://localhost:5000/approved-risks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(risk),
-      });
-
-      // Update UI
-      setData((prev) =>
-        prev.map((r) =>
-          r.id === risk.id ? { ...r, approved: true } : r
-        )
-      );
-
-      toast({
-        title: "Approved",
-        description: `Risiko ${risk.potensiRisiko} berhasil disetujui`,
-      });
+      setLoading(true);
+      const data = await fetchRisks(fetchWithAuth);
+      setRows(data);
     } catch (err) {
-      console.error(err);
-      toast({ title: "Error", description: "Gagal approve data" });
+      toast({
+        title: "Gagal memuat data",
+        description: "Pastikan server backend sedang berjalan.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDownloadExcel = async () => {
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Update nilai baris (onChange input)
+  const handleChange = (index: number, field: string, value: any) => {
+    setRows((prev) => {
+      const updated = [...prev];
+      updated[index][field] = value;
+      return updated;
+    });
+  };
+
+  // Auto-save setiap kolom
+  const handleAutoSave = async (row: any) => {
+    try {
+      await updateRisk(fetchWithAuth, row.id, row);
+      toast({
+        title: "Tersimpan",
+        description: `Risiko "${
+          row.nama_risiko || "Tanpa nama"
+        }" berhasil disimpan.`,
+        duration: 1500,
+      });
+    } catch {
+      toast({
+        title: "Gagal menyimpan",
+        description: "Terjadi kesalahan saat menyimpan perubahan.",
+        variant: "destructive",
+      });
+    }
+  };
+
+    const handleDownloadExcel = async () => {
     try {
       const res = await fetch("http://localhost:5000/approved-risks/export");
       if (!res.ok) throw new Error("Gagal download");
@@ -83,75 +88,65 @@ export default function RiskReportPage() {
     }
   };
 
-  if (isLoading) return <div className="p-8">Memuat laporan risiko...</div>;
 
-  const unitOptions = Array.from(new Set(data.map((d) => d.unit_name || "Unit Tidak Diketahui")));
+  // Filter data berdasarkan pencarian
+  const filteredRows = rows.filter((r) =>
+    (r.nama_risiko || "").toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="flex flex-1 flex-col p-4 md:p-6 lg:p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Risk Report</h1>
-          <p className="text-muted-foreground">Laporan risiko dari seluruh unit, bisa di-approve oleh admin.</p>
+    <main className="p-8 space-y-8 bg-gray-50/50 min-h-screen">
+      <header className="flex justify-between items-center border-b pb-4 border-gray-200">
+        <PageHeader
+          title="LAPORAN RISK REGISTER"
+          description="Laporan risiko dari seluruh unit kerja bjb Syariah."
+        />
+
+        <div className="flex items-center gap-3">
+          <Input
+            placeholder="🔍 Cari Kategori risiko..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-80 bg-white border-gray-300 shadow-sm focus:border-blue-500 transition-all duration-300"
+          />
+          <Button
+            onClick={loadData}
+            className="flex items-center gap-2 hover:bg-gray-100 transition-colors"
+            variant="outline"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Muat Ulang
+          </Button>
+          <Button onClick={handleDownloadExcel}>
+            <FileDown className="mr-2 h-4 w-4" /> Download Excel
+          </Button> 
         </div>
-        <Button onClick={handleDownloadExcel}>
-          <FileDown className="mr-2 h-4 w-4" /> Download Excel
-        </Button>
+      </header>
+
+      <div className="bg-white p-6 rounded-xl shadow-2xl border border-gray-100">
+        {loading ? (
+          <div className="space-y-4 pt-2">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+            <div className="text-center text-gray-400 text-sm pt-4">
+              Memuat data risiko, mohon tunggu sebentar... ⏳
+            </div>
+          </div>
+        ) : (
+          <RiskRegisterTable
+            data={filteredRows}
+            onChange={handleChange}
+            onAutoSave={handleAutoSave}
+            onBulkSubmit={async () => {
+              toast({
+                title: "Fitur kirim massal belum aktif",
+                description: "Akan tersedia dalam pembaruan berikutnya.",
+              });
+            }}
+          />
+        )}
       </div>
-
-      <Tabs defaultValue={unitOptions[0] || "Unit Tidak Diketahui"} className="w-full">
-        <TabsList className="flex flex-wrap gap-2 mb-6">
-          {unitOptions.map((unit) => (
-            <TabsTrigger key={unit} value={unit}>
-              {unit}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {unitOptions.map((unit) => (
-          <TabsContent key={unit} value={unit} className="space-y-6">
-            {data.filter((d) => (d.unit_name || "Unit Tidak Diketahui") === unit).length === 0 ? (
-              <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
-                <p>Belum ada laporan risiko untuk unit ini.</p>
-              </div>
-            ) : (
-              data
-                .filter((d) => (d.unit_name || "Unit Tidak Diketahui") === unit)
-                .map((row, index) => (
-                  <Card key={row.id}>
-                    <CardHeader>
-                      <CardTitle>Risiko #{index + 1}</CardTitle>
-                      <p className="pt-2 text-sm text-muted-foreground">Unit: {row.unit_name}</p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <Label>Potensi Risiko</Label>
-                        <p className="mt-1">{row.potensiRisiko}</p>
-                      </div>
-                      <div>
-                        <Label>Keterangan Admin</Label>
-                        <p className="mt-1">
-                          {row.keteranganAdmin ? row.keteranganAdmin : "-"}
-                        </p>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="flex justify-end bg-muted/50 py-3 px-6 border-t">
-                      {row.approved ? (
-                        <Button variant="outline" size="sm" disabled>
-                          <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Approved
-                        </Button>
-                      ) : (
-                        <Button size="sm" onClick={() => handleApprove(row)}>
-                          <CheckCircle className="mr-2 h-4 w-4" /> Approve
-                        </Button>
-                      )}
-                    </CardFooter>
-                  </Card>
-                ))
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
-    </div>
+    </main>
   );
 }

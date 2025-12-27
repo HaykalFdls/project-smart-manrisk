@@ -75,45 +75,33 @@ app.post('/users', async (req, res) => {
   res.json({ message: 'User berhasil ditambahkan' });
 });
 
-// ======== ROLES =============
+// =======================================================
+// ROLES + PERMISSIONS
+// =======================================================
 
-// Ambil semua roles + permissions
+// GET roles + permissions
 app.get('/roles', async (req, res) => {
   const [rows] = await db.execute(`
-    SELECT 
-      r.id, r.role_name, r.description,
-      rp.can_create, rp.can_read, rp.can_view, rp.can_update,
-      rp.can_approve, rp.can_delete, rp.can_provision
+    SELECT r.id, r.role_name, r.description,
+          rp.can_create, rp.can_read, rp.can_view, rp.can_update,
+          rp.can_approve, rp.can_delete, rp.can_provision
     FROM roles r
     LEFT JOIN role_permissions rp ON r.id = rp.role_id
   `);
   res.json(rows);
 });
 
-
-// ======== ROLE PERMISSIONS =============
-
-// Ambil permission berdasarkan role
+// FIX: hanya 1 route
 app.get('/roles/:roleId/permissions', async (req, res) => {
   const { roleId } = req.params;
-  const [rows] = await db.execute(
-    'SELECT * FROM role_permissions WHERE role_id = ?',
-    [roleId]
-  );
-  res.json(rows[0] || {});
-});
 
-// Ambil permissions khusus satu role
-app.get('/roles/:roleId/permissions', async (req, res) => {
-  const { roleId } = req.params;
-  const [rows] = await db.execute(
-    `SELECT 
-        rp.can_create, rp.can_read, rp.can_view, rp.can_update,
-        rp.can_approve, rp.can_delete, rp.can_provision
-    FROM role_permissions rp
-    WHERE rp.role_id = ?`,
-    [roleId]
-  );
+  const [rows] = await db.execute(`
+    SELECT can_create, can_read, can_view, can_update,
+          can_approve, can_delete, can_provision
+    FROM role_permissions
+    WHERE role_id = ?
+  `, [roleId]);
+
   res.json(rows[0] || {});
 });
 
@@ -127,7 +115,7 @@ app.get("/me", authenticateToken, async (req, res) => {
   });
 
   try {
-    // 🔹 Ambil data user + role + unit
+    // Ambil data user + role + unit
     const [rows] = await db.execute(
       `SELECT u.*, r.role_name, un.unit_name
        FROM users u
@@ -142,7 +130,7 @@ app.get("/me", authenticateToken, async (req, res) => {
 
     const user = rows[0];
 
-    // 🔹 Ambil permission berdasarkan role
+    //  Ambil permission berdasarkan role
     const [permRows] = await db.execute(
       `SELECT can_create, can_read, can_view, can_update, can_approve, can_delete, can_provision
        FROM role_permissions WHERE role_id = ?`,
@@ -362,114 +350,182 @@ app.get("/profile", authenticateToken, async (req, res) => {
   res.json(rows[0]);
 });
 
-// ======== RISKS =============
-app.get('/risks', async (req, res) => {
-  try {
-    const [rows] = await db.execute(`
-      SELECT r.*,
-        rs.role_name AS jabatan,
-        u.unit_id,
-        un.unit_name AS unit_kerja,   
-        u.name AS pemilik_nama 
-      FROM risks r
-      LEFT JOIN users u ON r.pemilik_risiko = u.id
-      LEFT JOIN roles rs ON u.role_id = rs.id
-      LEFT JOIN units un ON u.unit_id = un.id
-      ORDER BY r.id DESC
-    `);
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Gagal mengambil data risiko' });
-  }
+// =======================================================
+// RISKS (Protected)
+// =======================================================
+
+// GET risks
+app.get('/risks', authenticateToken, async (req, res) => {
+  const [rows] = await db.execute(`
+    SELECT r.*, rs.role_name AS jabatan, u.unit_id,
+          un.unit_name AS unit_kerja, u.name AS pemilik_nama 
+    FROM risks r
+    LEFT JOIN users u ON r.pemilik_risiko = u.id
+    LEFT JOIN roles rs ON u.role_id = rs.id
+    LEFT JOIN units un ON u.unit_id = un.id
+    ORDER BY r.id DESC
+  `);
+  res.json(rows);
 });
 
-
-// POST risk
-app.post('/risks', async (req, res) => {
+// POST risks
+app.post('/risks', authenticateToken, async (req, res) => {
   const data = req.body;
-  console.log('Incoming data:', req.body); 
-  const values = [
-    data.kategori_risiko, data.jenis_risiko, data.skenario_risiko, data.root_cause, data.dampak, 
-    data.dampak_keuangan, data.tingkat_dampak_keuangan, data.dampak_operasional, data.tingkat_dampak_operasional, 
-    data.dampak_reputasi, data.tingkat_dampak_reputasi, data.dampak_regulasi, data.tingkat_dampak_regulasi, 
-    data.skor_kemungkinan, data.tingkat_kemungkinan, data.nilai_risiko, data.tingkat_risiko,
-    data.rencana_penanganan, data.deskripsi_rencana_penanganan, data.risiko_residual,
-    data.kriteria_penerimaan_risiko, data.pemilik_risiko
-  ].map(v => v === undefined ? null : v);
+  const fields = Object.values(data).map(v => v ?? null);
 
-  const [result] = await db.execute(
-    `INSERT INTO risks (
-      kategori_risiko, jenis_risiko, skenario_risiko, root_cause, dampak, dampak_keuangan, tingkat_dampak_keuangan,
-      dampak_operasional, tingkat_dampak_operasional, dampak_reputasi, tingkat_dampak_reputasi, dampak_regulasi, tingkat_dampak_regulasi,
-      skor_kemungkinan, tingkat_kemungkinan, nilai_risiko, tingkat_risiko, rencana_penanganan, deskripsi_rencana_penanganan, risiko_residual,
+  const [result] = await db.execute(`
+    INSERT INTO risks (
+      kategori_risiko, jenis_risiko, skenario_risiko, root_cause, dampak,
+      dampak_keuangan, tingkat_dampak_keuangan, dampak_operasional, tingkat_dampak_operasional,
+      dampak_reputasi, tingkat_dampak_reputasi, dampak_regulasi, tingkat_dampak_regulasi,
+      skor_kemungkinan, tingkat_kemungkinan, nilai_risiko, tingkat_risiko,
+      rencana_penanganan, deskripsi_rencana_penanganan, risiko_residual,
       kriteria_penerimaan_risiko, pemilik_risiko
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    values
-  );
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, fields);
 
   res.json({ id: result.insertId, ...data });
 });
 
-const safe = (val) => val ?? null;
-// PUT risk
-app.put('/risks/:id', async (req, res) => {
+// PUT risks
+app.put('/risks/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const data = req.body;
+  const safe = (v) => v ?? null;
 
   const values = [
-    safe(data.kategori_risiko),
-    safe(data.jenis_risiko),
-    safe(data.skenario_risiko),
-    safe(data.root_cause),
-    safe(data.dampak),
-    safe(data.dampak_keuangan),
-    safe(data.tingkat_dampak_keuangan),
-    safe(data.dampak_operasional),
-    safe(data.tingkat_dampak_operasional),
-    safe(data.dampak_reputasi),
-    safe(data.tingkat_dampak_reputasi),
-    safe(data.dampak_regulasi),
-    safe(data.tingkat_dampak_regulasi),
-    safe(data.skor_kemungkinan),
-    safe(data.tingkat_kemungkinan),
-    safe(data.nilai_risiko),
-    safe(data.tingkat_risiko),
-    safe(data.rencana_penanganan),
-    safe(data.deskripsi_rencana_penanganan),
-    safe(data.risiko_residual),
-    safe(data.kriteria_penerimaan_risiko),
-    safe(data.pemilik_risiko),
+    safe(data.kategori_risiko), safe(data.jenis_risiko),
+    safe(data.skenario_risiko), safe(data.root_cause),
+    safe(data.dampak), safe(data.dampak_keuangan),
+    safe(data.tingkat_dampak_keuangan), safe(data.dampak_operasional),
+    safe(data.tingkat_dampak_operasional), safe(data.dampak_reputasi),
+    safe(data.tingkat_dampak_reputasi), safe(data.dampak_regulasi),
+    safe(data.tingkat_dampak_regulasi), safe(data.skor_kemungkinan),
+    safe(data.tingkat_kemungkinan), safe(data.nilai_risiko),
+    safe(data.tingkat_risiko), safe(data.rencana_penanganan),
+    safe(data.deskripsi_rencana_penanganan), safe(data.risiko_residual),
+    safe(data.kriteria_penerimaan_risiko), safe(data.pemilik_risiko),
     id
   ];
 
-  try {
-    await db.execute(
-      `UPDATE risks SET 
-        kategori_risiko=?, jenis_risiko=?, skenario_risiko=?, root_cause=?, dampak=?, 
-        dampak_keuangan=?, tingkat_dampak_keuangan=?, dampak_operasional=?, tingkat_dampak_operasional=?,
-        dampak_reputasi=?, tingkat_dampak_reputasi=?, dampak_regulasi=?, tingkat_dampak_regulasi=?,
-        skor_kemungkinan=?, tingkat_kemungkinan=?, nilai_risiko=?, tingkat_risiko=?,
-        rencana_penanganan=?, deskripsi_rencana_penanganan=?, risiko_residual=?,
-        kriteria_penerimaan_risiko=?, pemilik_risiko=?
-      WHERE id=?`,
-      values
-    );
+  await db.execute(`
+    UPDATE risks SET 
+      kategori_risiko=?, jenis_risiko=?, skenario_risiko=?, root_cause=?, dampak=?,
+      dampak_keuangan=?, tingkat_dampak_keuangan=?, dampak_operasional=?, tingkat_dampak_operasional=?,
+      dampak_reputasi=?, tingkat_dampak_reputasi=?, dampak_regulasi=?, tingkat_dampak_regulasi=?,
+      skor_kemungkinan=?, tingkat_kemungkinan=?, nilai_risiko=?, tingkat_risiko=?,
+      rencana_penanganan=?, deskripsi_rencana_penanganan=?, risiko_residual=?,
+      kriteria_penerimaan_risiko=?, pemilik_risiko=?
+    WHERE id=?`,
+    values
+  );
 
-    res.json({ id, ...data });
-  } catch (err) {
-    console.error('Update error:', err);
-    res.status(500).json({ error: 'Gagal update risk' });
-  }
+  res.json({ id, ...data });
 });
 
-// DELETE risk
-app.delete('/risks/:id', async (req, res) => {
-  const { id } = req.params;
-  await db.execute(`DELETE FROM risks WHERE id=?`, [id]);
+// DELETE risks
+app.delete('/risks/:id', authenticateToken, async (req, res) => {
+  await db.execute(`DELETE FROM risks WHERE id=?`, [req.params.id]);
   res.json({ message: 'Risk deleted' });
 });
 
+// GET /api/risks/masters
+app.get('/risks/masters', authenticateToken, async (req, res) => {
+  try {
+    // kriteria master: mis. banyak kolom NULL / status='draft'
+    const [rows] = await db.execute(
+      `SELECT id, kategori_risiko, jenis_risiko, skenario_risiko, pemilik_risiko, status, created_at
+       FROM risks
+       WHERE (nilai_risiko IS NULL AND rencana_penanganan IS NULL) OR status = 'draft'
+       ORDER BY created_at DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /api/risks/masters error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+// tambah data master
+app.post('/risks/master', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      kategori_risiko,
+      jenis_risiko = null,
+      skenario_risiko = null,
+      pemilik_risiko = null, // id user/unit yang ditunjuk (boleh null)
+      status = 'draft'
+    } = req.body;
+
+    if (!kategori_risiko) {
+      return res.status(400).json({ message: 'kategori_risiko wajib diisi' });
+    }
+
+    const [result] = await db.execute(
+      `INSERT INTO risks (
+        kategori_risiko, jenis_risiko, skenario_risiko,
+        root_cause, dampak, dampak_keuangan, tingkat_dampak_keuangan,
+        dampak_operasional, tingkat_dampak_operasional, dampak_reputasi, tingkat_dampak_reputasi,
+        dampak_regulasi, tingkat_dampak_regulasi, skor_kemungkinan, tingkat_kemungkinan,
+        nilai_risiko, tingkat_risiko, rencana_penanganan, deskripsi_rencana_penanganan,
+        risiko_residual, kriteria_penerimaan_risiko,
+        pemilik_risiko, status, last_updated_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        kategori_risiko,
+        jenis_risiko,
+        skenario_risiko,
+        null, null, null, null,
+        null, null, null, null,
+        null, null, null, null,
+        null, null, null, null, null, null,
+        pemilik_risiko,
+        status,
+        userId
+      ]
+    );
+
+    return res.json({ id: result.insertId, message: 'Master risk created' });
+  } catch (err) {
+    console.error('POST /risks/master error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// tambah data master (unit kerja melengkapi)
+app.post('/risks/generate', authenticateToken, async (req, res) => {
+  try {
+    const { master_id, target_unit_id = null, pemilik_risiko = null } = req.body;
+
+    if (!master_id) return res.status(400).json({ message: 'master_id required' });
+
+    const [masters] = await db.execute(
+      `SELECT kategori_risiko, jenis_risiko, skenario_risiko FROM risks WHERE id = ?`,
+      [master_id]
+    );
+
+    if (!masters.length) return res.status(404).json({ message: 'Master not found' });
+
+    const m = masters[0];
+
+    const [result] = await db.execute(
+      `INSERT INTO risks (
+        kategori_risiko, jenis_risiko, skenario_risiko,
+        pemilik_risiko
+      ) VALUES (?, ?, ?, ?)`,
+      [m.kategori_risiko, m.jenis_risiko, m.skenario_risiko, pemilik_risiko]
+    );
+
+    // Kalau ingin menyimpan info target_unit_id (jika ada kolom unit_id),
+    // tambahkan di INSERT dan parameter. (Table risks saat ini gak punya kolom unit_id).
+    return res.json({ id: result.insertId, message: 'Generated risk for unit' });
+  } catch (err) {
+    console.error('POST /risks/generate error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
 
 // ======== UNITS ===========
 // GET semua units atau filter berdasarkan parent_id
