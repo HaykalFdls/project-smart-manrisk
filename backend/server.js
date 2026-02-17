@@ -12,10 +12,11 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: "http://localhost:9002",
+    origin: "http://localhost:3000", // sesuaikan dengan port frontend
     credentials: true,
   })
 );
+
 
 // ================= ROUTES =================
 app.use("/api/auth", authRoutes);

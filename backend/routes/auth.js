@@ -1,55 +1,79 @@
 import express from "express";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+import pool from "../config/db.js";
 
 const router = express.Router();
 
-// Mock users for demo - replace with database query
-const MOCK_USERS = [
-  { id: 1, user_id: "admin", password: "admin123", name: "Administrator", role: "admin", role_id: 1, unit_name: "Management" },
-  { id: 2, user_id: "S02S02", password: "123456", name: "User Demo", role: "user", role_id: 2, unit_name: "Unit HR" },
-  { id: 3, user_id: "user001", password: "password", name: "Staff IT", role: "user", role_id: 2, unit_name: "Unit IT" },
-];
+router.post("/login", async (req, res) => {
+  try {
+    const { user_id, password } = req.body;
 
-router.post("/login", (req, res) => {
-  const { user_id, password } = req.body;
+    if (!user_id || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID dan Password wajib diisi",
+      });
+    }
 
-  // Find user
-  const foundUser = MOCK_USERS.find(u => u.user_id === user_id);
-  
-  if (!foundUser) {
-    return res.status(401).json({ success: false, message: "User tidak ditemukan" });
+    // Ambil user dari database
+    const [rows] = await pool.execute(
+      "SELECT * FROM users WHERE user_id = ? LIMIT 1",
+      [user_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: "User tidak ditemukan",
+      });
+    }
+
+    const user = rows[0];
+
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Password salah",
+      });
+    }
+
+    const userPayload = {
+      id: user.id,
+      user_id: user.user_id,
+      name: user.name,
+      role: user.role,
+      role_id: user.role_id,
+      unit_name: user.unit_name,
+    };
+
+    const token = jwt.sign(
+      userPayload,
+      process.env.JWT_SECRET || "secret123",
+      { expiresIn: "8h" }
+    );
+
+    res.cookie("accessToken", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 8 * 60 * 60 * 1000,
+    });
+
+    res.json({
+      success: true,
+      user: userPayload,
+    });
+
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan server",
+    });
   }
-
-  if (foundUser.password !== password) {
-    return res.status(401).json({ success: false, message: "Password salah" });
-  }
-
-  // Create user payload (exclude password)
-  const userPayload = {
-    id: foundUser.id,
-    user_id: foundUser.user_id,
-    name: foundUser.name,
-    role: foundUser.role,
-    role_id: foundUser.role_id,
-    unit_name: foundUser.unit_name,
-  };
-
-  const token = jwt.sign(
-    userPayload,
-    process.env.JWT_SECRET || "rahasia",
-    { expiresIn: "8h" }
-  );
-
-  res.cookie("accessToken", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 8 * 60 * 60 * 1000 // 8 hours
-  });
-
-  res.json({
-    success: true,
-    user: userPayload,
-  });
 });
 
 export default router;
