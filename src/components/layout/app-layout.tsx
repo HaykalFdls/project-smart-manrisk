@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/context/auth-context";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/layout/app-sidebar";
+import AppSidebar from "@/components/layout/sidebar";
 import GlobalLoading from "@/components/common/GlobalLoading";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";

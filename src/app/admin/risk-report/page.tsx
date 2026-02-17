@@ -3,7 +3,7 @@
 import { useAuth } from "@/context/auth-context";
 import { useState, useEffect } from "react";
 import { fetchRisks, updateRisk } from "@/lib/risk-register";
-import { RiskRegisterTable } from "@/components/riskregister/RiskRegisterTable";
+import { RiskRegisterTable } from "@/components/RiskRegister/RiskRegisterTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";

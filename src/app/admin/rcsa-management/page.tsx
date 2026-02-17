@@ -1,3 +1,12 @@
+// Halaman RCSA Management sedang dalam pengembangan
+export default function RcsaManagementPage() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <p className="text-gray-500">Halaman RCSA Management sedang dalam pengembangan</p>
+    </div>
+  );
+}
+
 // "use client";
 
 // import { useState, useEffect } from "react";

@@ -3,7 +3,7 @@
 import { useAuth } from "@/context/auth-context";
 import { useState, useEffect } from "react";
 import { fetchRisks, updateRisk, createRisk } from "@/lib/risk-register"; 
-import { RiskRegisterTable } from "@/components/riskregister/RiskRegisterTable";
+import { RiskRegisterTable } from "@/components/RiskRegister/RiskRegisterTable";
 import { RiskEntryForm } from "@/components/RiskRegister/RiskEntryForm"; // Komponen baru
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -84,8 +84,8 @@ export default function RiskRegisterPage() {
           <RiskRegisterTable
             data={rows}
             onChange={() => {}} // Nonaktifkan edit langsung jika ingin lewat form saja
-            onAutoSave={() => {}}
-            onBulkSubmit={() => {}}
+            onAutoSave={async () => {}}
+            onBulkSubmit={async () => {}}
           />
         )}
       </div>

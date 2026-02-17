@@ -10,7 +10,7 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isReady) {
+    if (isReady) {
       if (isAuthenticated) {
         router.replace("/dashboard");
       } else {
