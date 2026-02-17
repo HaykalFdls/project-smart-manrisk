@@ -86,7 +86,7 @@ export function mapToAssessment(row: RCSAData, userId: number, unitId: number) {
   const levelResidual = getLevelLabel(nilaiResidual);
   return {
     id: row.id,
-    rcsa_master_id: row.rcsa_master_id ?? row.rcsaMasterId,
+    rcsa_master_id: row.rcsa_master_id,
     unit_id: unitId,
     created_by: userId,
     potensi_risiko: row.potensiRisiko ?? "",

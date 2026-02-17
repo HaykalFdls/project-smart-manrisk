@@ -1,3 +1,12 @@
+// Halaman RCSA Report sedang dalam pengembangan
+export default function RcsaReportPage() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <p className="text-gray-500">Halaman RCSA Report sedang dalam pengembangan</p>
+    </div>
+  );
+}
+
 // "use client";
 
 // import { useState, useEffect, useMemo } from "react";

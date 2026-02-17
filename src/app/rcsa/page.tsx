@@ -1,3 +1,12 @@
+// Halaman RCSA sedang dalam pengembangan
+export default function RcsaPage() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <p className="text-gray-500">Halaman RCSA sedang dalam pengembangan</p>
+    </div>
+  );
+}
+
 // "use client";
 
 // import React, { useState, useMemo, useEffect, useCallback, memo, FC } from "react";

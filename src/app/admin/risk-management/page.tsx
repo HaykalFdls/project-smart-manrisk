@@ -2,8 +2,16 @@
 import React, { useEffect, useState } from 'react';
 import { Check, X, Search, Filter, AlertCircle } from "lucide-react";
 
+interface RiskItem {
+  id: number;
+  unit_name: string;
+  description: string;
+  score: number;
+  status: 'pending' | 'approved' | 'declined';
+}
+
 export default function AdminVerificationPage() {
-  const [risks, setRisks] = useState([]);
+  const [risks, setRisks] = useState<RiskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('pending');
 
@@ -28,7 +36,7 @@ export default function AdminVerificationPage() {
   }, []);
 
   // 2. Fungsi untuk Approve/Decline
-  const handleAction = async (id, status) => {
+  const handleAction = async (id: number, status: 'approved' | 'declined') => {
     const confirmMsg = status === 'approved' ? "Setujui risiko ini?" : "Tolak risiko ini?";
     if (!confirm(confirmMsg)) return;
 
