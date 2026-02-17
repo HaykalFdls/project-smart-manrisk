@@ -2,11 +2,13 @@
 
 import { useAuth } from "@/context/auth-context";
 import { useState, useEffect } from "react";
-import { fetchRisks, updateRisk } from "@/lib/risk-register";
+import { fetchRisks, updateRisk, createRisk } from "@/lib/risk-register"; 
 import { RiskRegisterTable } from "@/components/riskregister/RiskRegisterTable";
-import { PageHeader } from "@/components/page-header";
+import { RiskEntryForm } from "@/components/RiskRegister/RiskEntryForm"; // Komponen baru
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { Plus, ClipboardList } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function RiskRegisterPage() {
   const { fetchWithAuth, user } = useAuth();
@@ -14,112 +16,76 @@ export default function RiskRegisterPage() {
 
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 🟦 Get unit kerja / ID user login
-  const userUnit = user?.unit_name?.toLowerCase() || "";
-  const userId = user?.id;
+  const userUnit = user?.unit_name || "";
 
-  // 🔍 Detect data yang belum lengkap (entry master saja)
-const isIncomplete = (r: any) => r.status === "draft";
-
-
-  // 🟦 Fetch risks & filter otomatis sesuai unit login
   const loadData = async () => {
     try {
       setLoading(true);
       const data = await fetchRisks(fetchWithAuth);
-
-      // 🔍 Filter berdasarkan unit kerja user login
+      // Filter: Hanya yang milik unit user dan berstatus draft
       const filtered = data.filter(
-        (r: any) =>
-          (r.unit_kerja?.toLowerCase() === userUnit ||
-            r.pemilik_risiko === userId) &&
-          isIncomplete(r) // hanya data belum lengkap
+        (r: any) => r.unit_kerja?.toLowerCase() === userUnit.toLowerCase() && r.status === "draft"
       );
-
       setRows(filtered);
     } catch (err) {
-      toast({
-        title: "Gagal memuat data",
-        description: "Pastikan server backend berjalan.",
-        variant: "destructive",
-      });
+      toast({ title: "Gagal memuat data", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-  if (!user) return;        // mencegah render pertama
-  loadData();
-  }, [user?.id]);             // dependency selalu stabil
+  useEffect(() => { if (user) loadData(); }, [user?.id]);
 
-
-  // Update cell data
-  const handleChange = (index: number, field: string, value: any) => {
-    setRows((prev) => {
-      const updated = [...prev];
-      updated[index][field] = value;
-      return updated;
-    });
-  };
-
-  // Auto-save per kolom
-  const handleAutoSave = async (row: any) => {
+  const handleSubmitNew = async (formData: any) => {
     try {
-      await updateRisk(fetchWithAuth, row.id, row);
-      toast({
-        title: "Tersimpan",
-        description: `Risiko "${row.nama_risiko || row.kategori_risiko}" disimpan.`,
-        duration: 1500,
-      });
-    } catch {
-      toast({
-        title: "Gagal menyimpan",
-        description: "Terjadi kesalahan server.",
-        variant: "destructive",
-      });
+      // Pastikan menyertakan unit kerja user yang sedang login
+      await createRisk(fetchWithAuth, { ...formData, unit_kerja: userUnit, status: "draft" });
+      toast({ title: "Berhasil Terkirim", description: "Risiko telah ditambahkan ke daftar tunggu admin." });
+      setIsModalOpen(false);
+      loadData(); // Refresh tabel
+    } catch (error) {
+      toast({ title: "Gagal mengirim", variant: "destructive" });
     }
   };
 
-  // Filter by search
-  const filteredRows = rows.filter((r) =>
-    (r.nama_risiko || r.kategori_risiko || "")
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
-
   return (
-    <main className="p-8 space-y-8 bg-gray-50/50 min-h-screen">
-      <header className="flex justify-between items-center border-b pb-4 border-gray-200">
-        <PageHeader
-          title="Kertas Kerja Risk Register"
-          description={`Risiko milik Unit: ${user?.unit_name || "-"}`}
-        />
-      </header>
-
-      <div className="bg-white p-6 rounded-xl shadow-2xl border border-gray-100">
-        {loading ? (
-          <div className="space-y-4 pt-2">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
-            <div className="text-center text-gray-400 text-sm pt-4">
-              Memuat data risiko... ⏳
-            </div>
+    <main className="p-6 md:p-10 space-y-6 bg-[#f8fafc] min-h-screen">
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-blue-50 rounded-lg text-blue-600"><ClipboardList size={28} /></div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">Risk Register</h1>
+            <p className="text-slate-500 text-sm italic">Unit: {userUnit}</p>
           </div>
+        </div>
+        
+        {/* MODAL INPUT FORM */}
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogTrigger asChild>
+            <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold transition-all shadow-lg shadow-blue-200">
+              <Plus size={20} /> Input Risiko Baru
+            </button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px] rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-slate-800">Form Input Risiko</DialogTitle>
+            </DialogHeader>
+            <RiskEntryForm onSubmit={handleSubmitNew} onCancel={() => setIsModalOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        {loading ? (
+           <div className="p-8 space-y-4"><Skeleton className="h-16 w-full rounded-xl" /></div>
         ) : (
           <RiskRegisterTable
-            data={filteredRows}
-            onChange={handleChange}
-            onAutoSave={handleAutoSave}
-            onBulkSubmit={() =>
-              toast({
-                title: "Fitur belum tersedia",
-                description: "Kirim massal akan diaktifkan nanti.",
-              })
-            }
+            data={rows}
+            onChange={() => {}} // Nonaktifkan edit langsung jika ingin lewat form saja
+            onAutoSave={() => {}}
+            onBulkSubmit={() => {}}
           />
         )}
       </div>
