@@ -10,7 +10,7 @@ function safeNull(v: any) {
 }
 
 function buildRiskPayload(data: any) {
-  return {
+  const payload: any = {
     kategori_risiko: data.kategori_risiko || null,
     jenis_risiko: data.jenis_risiko || null,
     skenario_risiko: data.skenario_risiko || null,
@@ -34,6 +34,12 @@ function buildRiskPayload(data: any) {
     kriteria_penerimaan_risiko: data.kriteria_penerimaan_risiko || null,
     pemilik_risiko: safeNull(data.pemilik_risiko),
   };
+
+  if (data.status !== undefined && data.status !== null) {
+    payload.status = data.status;
+  }
+
+  return payload;
 }
 
 /* =========================================================
@@ -83,7 +89,12 @@ export async function fetchUsers(fetchWithAuth: any) {
 export async function fetchRisks(fetchWithAuth: any) {
   const res = await fetchWithAuth(`${API_URL}/risks`);
   if (!res.ok) throw new Error("Gagal mengambil data risiko");
-  return res.json();
+  const payload = await res.json();
+
+  // Normalisasi agar caller selalu menerima array rows.
+  if (Array.isArray(payload)) return payload;
+  if (payload?.success && Array.isArray(payload.data)) return payload.data;
+  return [];
 }
 
 /* =========================================================
@@ -111,7 +122,16 @@ export async function updateRisk(fetchWithAuth: any, id: number, data: any) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("Gagal mengupdate risiko");
+  if (!res.ok) {
+    let message = "Gagal mengupdate risiko";
+    try {
+      const err = await res.json();
+      message = err?.message || message;
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(message);
+  }
   return res.json();
 }
 
@@ -120,7 +140,16 @@ export async function updateRisk(fetchWithAuth: any, id: number, data: any) {
 ========================================================= */
 export async function deleteRisk(fetchWithAuth: any, id: number) {
   const res = await fetchWithAuth(`${API_URL}/risks/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("Gagal menghapus risiko");
+  if (!res.ok) {
+    let message = "Gagal menghapus risiko";
+    try {
+      const err = await res.json();
+      message = err?.message || message;
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(message);
+  }
   return res.json();
 }
 

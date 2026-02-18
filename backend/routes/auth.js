@@ -5,6 +5,19 @@ import pool from "../config/db.js";
 
 const router = express.Router();
 
+function toPermissionBool(value) {
+  if (value === true || value === 1) return true;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "1" || normalized === "true";
+  }
+  // Handle BIT(1) from mysql2 (Buffer)
+  if (Buffer.isBuffer(value)) {
+    return value.length > 0 && value[0] === 1;
+  }
+  return false;
+}
+
 router.post("/login", async (req, res) => {
   try {
     const { user_id, password } = req.body;
@@ -16,9 +29,15 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // Ambil user dari database
+    // Ambil user dengan role dan unit info
     const [rows] = await pool.execute(
-      "SELECT * FROM users WHERE user_id = ? LIMIT 1",
+      `SELECT u.id, u.user_id, u.name, u.email, u.password, u.role_id, u.unit_id, u.status,
+              r.role_name, 
+              un.unit_name
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       LEFT JOIN units un ON u.unit_id = un.id
+       WHERE u.user_id = ? LIMIT 1`,
       [user_id]
     );
 
@@ -41,13 +60,35 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    // Ambil permissions berdasarkan role_id
+    const [permissions] = await pool.execute(
+      `SELECT can_create, can_read, can_view, can_update, can_approve, can_delete, can_provision
+       FROM role_permissions
+       WHERE role_id = ?`,
+      [user.role_id]
+    );
+
+    const userPermissions = permissions.length > 0 ? {
+      can_create: toPermissionBool(permissions[0].can_create),
+      can_read: toPermissionBool(permissions[0].can_read),
+      can_view: toPermissionBool(permissions[0].can_view),
+      can_update: toPermissionBool(permissions[0].can_update),
+      can_approve: toPermissionBool(permissions[0].can_approve),
+      can_delete: toPermissionBool(permissions[0].can_delete),
+      can_provision: toPermissionBool(permissions[0].can_provision),
+    } : {};
+
     const userPayload = {
       id: user.id,
       user_id: user.user_id,
       name: user.name,
-      role: user.role,
+      email: user.email,
       role_id: user.role_id,
+      role_name: user.role_name,
+      unit_id: user.unit_id,
       unit_name: user.unit_name,
+      status: user.status,
+      permissions: userPermissions,
     };
 
     const token = jwt.sign(

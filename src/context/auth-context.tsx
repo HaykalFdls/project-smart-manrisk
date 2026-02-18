@@ -8,8 +8,19 @@ interface User {
   user_id: string;
   name: string;
   role: string;
+  role_name?: string;
+  unit_id?: number;
   role_id?: number;
   unit_name?: string;
+  permissions?: {
+    can_create?: boolean;
+    can_read?: boolean;
+    can_view?: boolean;
+    can_update?: boolean;
+    can_approve?: boolean;
+    can_delete?: boolean;
+    can_provision?: boolean;
+  };
 }
 
 interface AuthContextType {

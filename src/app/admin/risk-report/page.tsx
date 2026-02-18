@@ -71,7 +71,7 @@ export default function RiskRegisterPage() {
 
     const handleDownloadExcel = async () => {
     try {
-      const res = await fetch("http://localhost:5000/approved-risks/export");
+      const res = await fetchWithAuth("http://localhost:5001/api/approved-risks/export");
       if (!res.ok) throw new Error("Gagal download");
 
       // Buat blob dan trigger download

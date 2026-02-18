@@ -1,9 +1,11 @@
+import { config } from "dotenv";
 import mysql from "mysql2/promise";
+config();
 
 const pool = mysql.createPool({
   host: "localhost",
   user: "root",          // ganti kalau beda
-  password: "",          // isi kalau ada password
+  password: process.env.DB_PASSWORD || "",          // isi kalau ada password
   database: "smart_database", // ganti sesuai nama database kamu
   waitForConnections: true,
   connectionLimit: 10,
